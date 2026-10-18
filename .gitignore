@@ -1,0 +1,42 @@
+# Downloaded test images and temporary files
+/scratch/
+/scratch/**
+/backend/*test*.jpg
+
+# Downloaded datasets
+/archive (1)/
+/dataset/
+/dataset_backup_legacy/
+/datasets/
+/ml/datasets/
+
+# Model backups
+/ml/models/backup_pre_upgrade/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Git backup and local files
+.git-backup/
+**/.git-backup/
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+__pycache__/
+.pytest_cache/
+# Runtime-generated uploads and audit data
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+
+/storage/audit/*
+!/storage/audit/.gitkeep
+
+/storage/foods/*
+!/storage/foods/.gitkeep

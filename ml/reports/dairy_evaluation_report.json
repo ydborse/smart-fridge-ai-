@@ -1,0 +1,375 @@
+{
+  "timestamp": "2026-10-13T19:16:24.232955",
+  "checkpoint_path": "ml/models/dairy_classifier.pth",
+  "active_model_metrics": {
+    "accuracy": 0.6667,
+    "total_test_samples": 72,
+    "per_class_metrics": {
+      "cheese": {
+        "precision": 0.6667,
+        "recall": 0.6667,
+        "f1_score": 0.6667,
+        "support": 18
+      },
+      "milk": {
+        "precision": 0.6923,
+        "recall": 0.5,
+        "f1_score": 0.5806,
+        "support": 18
+      },
+      "paneer": {
+        "precision": 0.625,
+        "recall": 0.8333,
+        "f1_score": 0.7143,
+        "support": 18
+      },
+      "yogurt": {
+        "precision": 0.7059,
+        "recall": 0.6667,
+        "f1_score": 0.6857,
+        "support": 18
+      }
+    },
+    "confusion_matrix": {
+      "matrix": [
+        [
+          12,
+          1,
+          3,
+          2
+        ],
+        [
+          3,
+          9,
+          3,
+          3
+        ],
+        [
+          3,
+          0,
+          15,
+          0
+        ],
+        [
+          0,
+          3,
+          3,
+          12
+        ]
+      ],
+      "labels": [
+        "cheese",
+        "milk",
+        "paneer",
+        "yogurt"
+      ]
+    },
+    "pairwise_confusion": {
+      "milk_as_yogurt": 3,
+      "yogurt_as_milk": 3,
+      "cheese_as_paneer": 3,
+      "paneer_as_cheese": 3,
+      "yogurt_as_cheese": 0,
+      "cheese_as_yogurt": 2
+    },
+    "calibration": {
+      "avg_confidence_correct": 0.7766,
+      "avg_confidence_error": 0.5433,
+      "expected_calibration_error": 0.0663
+    }
+  },
+  "baseline_model_metrics": {
+    "accuracy": 0.6667,
+    "total_test_samples": 72,
+    "per_class_metrics": {
+      "cheese": {
+        "precision": 0.6667,
+        "recall": 0.6667,
+        "f1_score": 0.6667,
+        "support": 18
+      },
+      "milk": {
+        "precision": 0.6923,
+        "recall": 0.5,
+        "f1_score": 0.5806,
+        "support": 18
+      },
+      "paneer": {
+        "precision": 0.625,
+        "recall": 0.8333,
+        "f1_score": 0.7143,
+        "support": 18
+      },
+      "yogurt": {
+        "precision": 0.7059,
+        "recall": 0.6667,
+        "f1_score": 0.6857,
+        "support": 18
+      }
+    },
+    "confusion_matrix": {
+      "matrix": [
+        [
+          12,
+          1,
+          3,
+          2
+        ],
+        [
+          3,
+          9,
+          3,
+          3
+        ],
+        [
+          3,
+          0,
+          15,
+          0
+        ],
+        [
+          0,
+          3,
+          3,
+          12
+        ]
+      ],
+      "labels": [
+        "cheese",
+        "milk",
+        "paneer",
+        "yogurt"
+      ]
+    },
+    "pairwise_confusion": {
+      "milk_as_yogurt": 3,
+      "yogurt_as_milk": 3,
+      "cheese_as_paneer": 3,
+      "paneer_as_cheese": 3,
+      "yogurt_as_cheese": 0,
+      "cheese_as_yogurt": 2
+    },
+    "calibration": {
+      "avg_confidence_correct": 0.7766,
+      "avg_confidence_error": 0.5433,
+      "expected_calibration_error": 0.0663
+    }
+  },
+  "regression_samples_summary": {
+    "passed": 15,
+    "total": 15,
+    "pass_rate": 1.0
+  },
+  "regression_samples_detail": [
+    {
+      "name": "Amul Taaza Milk Packet",
+      "file": "milk_amul_8901262261425.jpg",
+      "expected": "milk",
+      "predicted": "milk",
+      "confidence": 0.8723,
+      "all_scores": {
+        "cheese": 0.0159,
+        "milk": 0.8723,
+        "paneer": 0.0265,
+        "yogurt": 0.0852
+      },
+      "pass": true
+    },
+    {
+      "name": "Mother Dairy Milk Pouch",
+      "file": "milk_mother_dairy_8901648001904.jpg",
+      "expected": "milk",
+      "predicted": "milk",
+      "confidence": 0.5429,
+      "all_scores": {
+        "cheese": 0.3628,
+        "milk": 0.5429,
+        "paneer": 0.0091,
+        "yogurt": 0.0852
+      },
+      "pass": true
+    },
+    {
+      "name": "Nandini Milk Pouch",
+      "file": "milk_nandini_8906036674081.jpg",
+      "expected": "milk",
+      "predicted": "milk",
+      "confidence": 0.7571,
+      "all_scores": {
+        "cheese": 0.0793,
+        "milk": 0.7571,
+        "paneer": 0.1363,
+        "yogurt": 0.0274
+      },
+      "pass": true
+    },
+    {
+      "name": "Milk Plastic Bottle",
+      "file": "dairy_f6eaab6b5fc84a47a7b9160acc9ce5f1_Screenshot 2026-10-13 214902.png",
+      "expected": "milk",
+      "predicted": "milk",
+      "confidence": 0.6846,
+      "all_scores": {
+        "cheese": 0.0589,
+        "milk": 0.6846,
+        "paneer": 0.0263,
+        "yogurt": 0.2302
+      },
+      "pass": true
+    },
+    {
+      "name": "Amul Cheese Block 200g",
+      "file": "cheese_amul_8901262020060.jpg",
+      "expected": "cheese",
+      "predicted": "cheese",
+      "confidence": 0.6274,
+      "all_scores": {
+        "cheese": 0.6274,
+        "milk": 0.0593,
+        "paneer": 0.2751,
+        "yogurt": 0.0382
+      },
+      "pass": true
+    },
+    {
+      "name": "Britannia Cheese Slices",
+      "file": "cheese_britannia_8901063401457.jpg",
+      "expected": "cheese",
+      "predicted": "cheese",
+      "confidence": 0.536,
+      "all_scores": {
+        "cheese": 0.536,
+        "milk": 0.4044,
+        "paneer": 0.049,
+        "yogurt": 0.0106
+      },
+      "pass": true
+    },
+    {
+      "name": "Go Cheese Slices",
+      "file": "cheese_go_cheese_8906001023357.jpg",
+      "expected": "cheese",
+      "predicted": "cheese",
+      "confidence": 0.5908,
+      "all_scores": {
+        "cheese": 0.5908,
+        "milk": 0.1195,
+        "paneer": 0.1873,
+        "yogurt": 0.1023
+      },
+      "pass": true
+    },
+    {
+      "name": "Cheddar/Mozzarella Package",
+      "file": "cheese_other_brands_8904083310112.jpg",
+      "expected": "cheese",
+      "predicted": "cheese",
+      "confidence": 0.6897,
+      "all_scores": {
+        "cheese": 0.6897,
+        "milk": 0.0856,
+        "paneer": 0.0969,
+        "yogurt": 0.1278
+      },
+      "pass": true
+    },
+    {
+      "name": "Epigamia Greek Yogurt (Unseen)",
+      "file": "yogurt_epigamia_8906059635120.jpg",
+      "expected": "yogurt",
+      "predicted": "yogurt",
+      "confidence": 0.8848,
+      "all_scores": {
+        "cheese": 0.0311,
+        "milk": 0.0472,
+        "paneer": 0.0369,
+        "yogurt": 0.8848
+      },
+      "pass": true
+    },
+    {
+      "name": "Epigamia Reference Cup",
+      "file": "media_1791915381137.png",
+      "expected": "yogurt",
+      "predicted": "yogurt",
+      "confidence": 0.6086,
+      "all_scores": {
+        "cheese": 0.0301,
+        "milk": 0.2743,
+        "paneer": 0.087,
+        "yogurt": 0.6086
+      },
+      "pass": true
+    },
+    {
+      "name": "Milky Mist Reference Cup",
+      "file": "media_1791915381215.png",
+      "expected": "yogurt",
+      "predicted": "yogurt",
+      "confidence": 0.967,
+      "all_scores": {
+        "cheese": 0.002,
+        "milk": 0.0234,
+        "paneer": 0.0076,
+        "yogurt": 0.967
+      },
+      "pass": true
+    },
+    {
+      "name": "Milky Mist 2-Pack Reference",
+      "file": "media_1791915381309.png",
+      "expected": "yogurt",
+      "predicted": "yogurt",
+      "confidence": 0.9525,
+      "all_scores": {
+        "cheese": 0.0038,
+        "milk": 0.0348,
+        "paneer": 0.0089,
+        "yogurt": 0.9525
+      },
+      "pass": true
+    },
+    {
+      "name": "Table Shot Cup with Foil",
+      "file": "media_1791915381339.png",
+      "expected": "yogurt",
+      "predicted": "yogurt",
+      "confidence": 0.887,
+      "all_scores": {
+        "cheese": 0.0102,
+        "milk": 0.0849,
+        "paneer": 0.0179,
+        "yogurt": 0.887
+      },
+      "pass": true
+    },
+    {
+      "name": "Fresh Paneer (Amul/Mother Dairy)",
+      "file": "paneer_8901042956275.jpg",
+      "expected": "paneer",
+      "predicted": "paneer",
+      "confidence": 0.8472,
+      "all_scores": {
+        "cheese": 0.1007,
+        "milk": 0.0123,
+        "paneer": 0.8472,
+        "yogurt": 0.0398
+      },
+      "pass": true
+    },
+    {
+      "name": "Fresh Paneer (ID Fresh)",
+      "file": "paneer_8904063202321.jpg",
+      "expected": "paneer",
+      "predicted": "paneer",
+      "confidence": 0.9318,
+      "all_scores": {
+        "cheese": 0.0337,
+        "milk": 0.0134,
+        "paneer": 0.9318,
+        "yogurt": 0.0211
+      },
+      "pass": true
+    }
+  ]
+}

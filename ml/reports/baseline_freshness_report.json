@@ -1,0 +1,101 @@
+{
+  "architecture": "MobileNetV2",
+  "checkpoint_path": "ml/models/freshness_classifier.pth",
+  "classes": [
+    "fresh",
+    "overripe",
+    "ripe",
+    "rotten"
+  ],
+  "accuracy": 0.6326860841423948,
+  "macro_f1": 0.634564836943452,
+  "per_class": {
+    "fresh": {
+      "precision": 0.5151515151515151,
+      "recall": 0.3434343434343434,
+      "f1-score": 0.4121212121212121,
+      "support": 198.0
+    },
+    "overripe": {
+      "precision": 0.527027027027027,
+      "recall": 0.8666666666666667,
+      "f1-score": 0.6554621848739496,
+      "support": 45.0
+    },
+    "ripe": {
+      "precision": 0.4931506849315068,
+      "recall": 0.542713567839196,
+      "f1-score": 0.5167464114832536,
+      "support": 199.0
+    },
+    "rotten": {
+      "precision": 0.9119170984455959,
+      "recall": 1.0,
+      "f1-score": 0.9539295392953929,
+      "support": 176.0
+    },
+    "accuracy": 0.6326860841423948,
+    "macro avg": {
+      "precision": 0.6118115813889112,
+      "recall": 0.6882036444850516,
+      "f1-score": 0.634564836943452,
+      "support": 618.0
+    },
+    "weighted avg": {
+      "precision": 0.6219265563818948,
+      "recall": 0.6326860841423948,
+      "f1-score": 0.6178316069910751,
+      "support": 618.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      68,
+      12,
+      107,
+      11
+    ],
+    [
+      2,
+      39,
+      4,
+      0
+    ],
+    [
+      62,
+      23,
+      108,
+      6
+    ],
+    [
+      0,
+      0,
+      0,
+      176
+    ]
+  ],
+  "false_fresh_rate": 0.00904977375565611,
+  "false_fresh_count": 2,
+  "total_spoiled": 221,
+  "rotten_recall": 1.0,
+  "user_capsicum_evaluations": {
+    "514935fc11894dd8960040d55f82e281_Screenshot 2026-10-11 182958.png": {
+      "fresh": 0.4874090552330017,
+      "overripe": 0.0037474550772458315,
+      "ripe": 0.45549169182777405,
+      "rotten": 0.05335189402103424
+    },
+    "918176bc0770432eb71efc4749f85471_Screenshot 2026-10-11 182928.png": {
+      "fresh": 0.4633316993713379,
+      "overripe": 0.03783337026834488,
+      "ripe": 0.4760270118713379,
+      "rotten": 0.022807864472270012
+    },
+    "4276245b967d4a02ae55e7914a0c5bbd_Screenshot 2026-10-11 224226.png": {
+      "fresh": 0.2777238190174103,
+      "overripe": 0.06201618164777756,
+      "ripe": 0.2890917658805847,
+      "rotten": 0.37116825580596924
+    }
+  }
+}

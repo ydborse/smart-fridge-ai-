@@ -1,0 +1,13 @@
+{
+  "name": "smart-fridge-ai",
+  "version": "1.0.0",
+  "description": "Smart Fridge AI - Food Management, Freshness AI, Barcode Scanner & Spoilage SMS Alert System",
+  "private": true,
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File ./start-dev.ps1",
+    "dev:backend": "powershell -ExecutionPolicy Bypass -File ./start-dev.ps1 -BackendOnly",
+    "dev:frontend": "powershell -ExecutionPolicy Bypass -File ./start-dev.ps1 -FrontendOnly",
+    "build": "npm --prefix frontend run build",
+    "start": "powershell -ExecutionPolicy Bypass -File ./start-dev.ps1"
+  }
+}

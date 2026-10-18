@@ -1,0 +1,30 @@
+{
+  "accuracy": 0.6666666666666666,
+  "rotten_recall": 0.0,
+  "metrics": {
+    "fresh": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 1
+    },
+    "ripe": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1_score": 0.667,
+      "support": 2
+    },
+    "overripe": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "support": 0
+    },
+    "rotten": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "support": 0
+    }
+  }
+}

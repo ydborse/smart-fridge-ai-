@@ -1,0 +1,63 @@
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: smart_fridge_db
+    environment:
+      POSTGRES_USER: smartfridge
+      POSTGRES_PASSWORD: smartfridge_password
+      POSTGRES_DB: smartfridge_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartfridge -d smartfridge_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
+    container_name: smart_fridge_backend
+    environment:
+      - DATABASE_URL=postgresql://smartfridge:smartfridge_password@db:5432/smartfridge_db
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER:-}
+      - KAGGLE_USERNAME=${KAGGLE_USERNAME:-}
+      - KAGGLE_KEY=${KAGGLE_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+      - ./ml:/app/ml
+      - ./dataset:/app/dataset
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smart_fridge_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

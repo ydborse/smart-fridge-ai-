@@ -1,0 +1,114 @@
+{
+  "freshness_dataset_splits": {
+    "train": {
+      "fresh": 921,
+      "ripe": 922,
+      "overripe": 210,
+      "rotten": 819
+    },
+    "val": {
+      "fresh": 197,
+      "ripe": 197,
+      "overripe": 45,
+      "rotten": 175
+    },
+    "test": {
+      "fresh": 198,
+      "ripe": 199,
+      "overripe": 45,
+      "rotten": 176
+    }
+  },
+  "total_images": 4104,
+  "corrupt_files_count": 0,
+  "corrupt_files": [],
+  "exact_duplicates_count": 0,
+  "exact_duplicates_sample": [],
+  "near_duplicates_count": 748,
+  "near_duplicates_sample": [
+    [
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00005.jpg",
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00002.jpg"
+    ],
+    [
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00023.jpg",
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00019.jpg"
+    ],
+    [
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00027.jpg",
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00019.jpg"
+    ],
+    [
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00039.jpg",
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00032.jpg"
+    ],
+    [
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00041.jpg",
+      "E:\\smart-fridge-AI\\smartfridge-main\\dataset\\freshness_dataset\\train\\fresh\\f360_fresh_00034.jpg"
+    ]
+  ],
+  "resolution_min": [
+    100,
+    100
+  ],
+  "resolution_max": [
+    3648,
+    2736
+  ],
+  "food_x_condition_coverage": {
+    "apple": {
+      "fresh": 553,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 394
+    },
+    "banana": {
+      "fresh": 680,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 381
+    },
+    "broccoli": {
+      "fresh": 50,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 0
+    },
+    "capsicum": {
+      "fresh": 150,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 0
+    },
+    "cucumber": {
+      "fresh": 150,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 0
+    },
+    "lychee": {
+      "fresh": 150,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 0
+    },
+    "orange": {
+      "fresh": 601,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 395
+    },
+    "strawberry": {
+      "fresh": 150,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 0
+    },
+    "tomato": {
+      "fresh": 150,
+      "ripe": 0,
+      "overripe": 0,
+      "rotten": 0
+    }
+  }
+}

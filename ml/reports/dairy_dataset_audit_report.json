@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-10-13T19:07:46.852482",
+  "dataset_directory": "ml/datasets/dairy",
+  "total_images_audited": 500,
+  "splits_found": [
+    "train",
+    "val",
+    "test"
+  ],
+  "classes_found": [
+    "cheese",
+    "milk",
+    "paneer",
+    "yogurt"
+  ],
+  "class_split_counts": {
+    "train": {
+      "cheese": 88,
+      "milk": 88,
+      "paneer": 88,
+      "yogurt": 88
+    },
+    "val": {
+      "cheese": 19,
+      "milk": 19,
+      "paneer": 19,
+      "yogurt": 19
+    },
+    "test": {
+      "cheese": 18,
+      "milk": 18,
+      "paneer": 18,
+      "yogurt": 18
+    }
+  },
+  "total_per_class": {
+    "cheese": 125,
+    "milk": 125,
+    "paneer": 125,
+    "yogurt": 125
+  },
+  "corrupted_images_count": 0,
+  "corrupted_images": [],
+  "exact_duplicates_count": 0,
+  "exact_duplicates": [],
+  "near_duplicates_count": 0,
+  "near_duplicates_sample": [],
+  "cross_split_leakages_count": 0,
+  "cross_split_leakages": [],
+  "cross_class_conflicts_count": 0,
+  "cross_class_conflicts": [],
+  "resolution_stats": {
+    "min_width": 136,
+    "min_height": 143,
+    "max_width": 557,
+    "max_height": 467,
+    "avg_width": 306.5,
+    "avg_height": 369.5
+  },
+  "audit_status": "PASSED"
+}

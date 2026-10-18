@@ -1,0 +1,121 @@
+{
+  "dataset": "archive(1)",
+  "num_train_samples": 2302,
+  "num_val_samples": 464,
+  "num_test_samples": 597,
+  "classes": [
+    "fresh",
+    "rotten"
+  ],
+  "class_to_idx": {
+    "fresh": 0,
+    "rotten": 1
+  },
+  "best_val_accuracy": 0.9568965517241379,
+  "test_accuracy": 0.9246231155778895,
+  "classification_report": {
+    "fresh": {
+      "precision": 0.939297124600639,
+      "recall": 0.91875,
+      "f1-score": 0.9289099526066351,
+      "support": 320.0
+    },
+    "rotten": {
+      "precision": 0.9084507042253521,
+      "recall": 0.9314079422382672,
+      "f1-score": 0.9197860962566845,
+      "support": 277.0
+    },
+    "accuracy": 0.9246231155778895,
+    "macro avg": {
+      "precision": 0.9238739144129955,
+      "recall": 0.9250789711191336,
+      "f1-score": 0.9243480244316598,
+      "support": 597.0
+    },
+    "weighted avg": {
+      "precision": 0.9249847988988726,
+      "recall": 0.9246231155778895,
+      "f1-score": 0.9246766055229897,
+      "support": 597.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      294,
+      26
+    ],
+    [
+      19,
+      258
+    ]
+  ],
+  "per_food_results": {
+    "apple": {
+      "accuracy": 0.9125,
+      "total_tested": 80,
+      "breakdown": {
+        "fresh": "34/40 (85.0%)",
+        "rotten": "39/40 (97.5%)"
+      }
+    },
+    "banana": {
+      "accuracy": 0.975,
+      "total_tested": 80,
+      "breakdown": {
+        "fresh": "38/40 (95.0%)",
+        "rotten": "40/40 (100.0%)"
+      }
+    },
+    "capsicum": {
+      "accuracy": 0.9859,
+      "total_tested": 71,
+      "breakdown": {
+        "fresh": "39/40 (97.5%)",
+        "rotten": "31/31 (100.0%)"
+      }
+    },
+    "cucumber": {
+      "accuracy": 0.9125,
+      "total_tested": 80,
+      "breakdown": {
+        "fresh": "36/40 (90.0%)",
+        "rotten": "37/40 (92.5%)"
+      }
+    },
+    "orange": {
+      "accuracy": 0.825,
+      "total_tested": 80,
+      "breakdown": {
+        "fresh": "32/40 (80.0%)",
+        "rotten": "34/40 (85.0%)"
+      }
+    },
+    "potato": {
+      "accuracy": 0.875,
+      "total_tested": 80,
+      "breakdown": {
+        "fresh": "36/40 (90.0%)",
+        "rotten": "34/40 (85.0%)"
+      }
+    },
+    "strawberry": {
+      "accuracy": 0.9365,
+      "total_tested": 63,
+      "breakdown": {
+        "fresh": "39/40 (97.5%)",
+        "rotten": "20/23 (87.0%)"
+      }
+    },
+    "tomato": {
+      "accuracy": 1.0,
+      "total_tested": 63,
+      "breakdown": {
+        "fresh": "40/40 (100.0%)",
+        "rotten": "23/23 (100.0%)"
+      }
+    }
+  },
+  "training_time_minutes": 3.46,
+  "timestamp": "2026-10-12 22:48:11"
+}

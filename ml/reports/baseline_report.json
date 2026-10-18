@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-10-11T16:14:20Z",
+  "hardware": {
+    "python": "3.13.1",
+    "pytorch": "2.14.1+cpu",
+    "cuda": false,
+    "device": "CPU",
+    "ram_total_gb": 15.65,
+    "ram_avail_gb": 2.59,
+    "disk_c_free_gb": 0.24,
+    "disk_e_free_gb": 23.02
+  },
+  "existing_tests": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "warnings": 50
+  },
+  "checkpoints": {
+    "food_classifier": {
+      "path": "ml/models/food_classifier.pth",
+      "architecture": "mobilenet_v2",
+      "classes": [
+        "apple",
+        "banana",
+        "broccoli",
+        "capsicum",
+        "cucumber",
+        "lychee",
+        "orange",
+        "strawberry",
+        "tomato"
+      ],
+      "studio_test_acc": 0.9913,
+      "real_world_test": {
+        "apple_accuracy": "1/16 (6.2%)",
+        "orange_accuracy": "0/13 (0.0%)",
+        "bell_pepper_accuracy": "0/15 (0.0%)",
+        "banana_accuracy": "16/20 (80.0%)",
+        "unsupported_carrot": "0/15 rejected (100% misclassified as Apple/Broccoli)",
+        "unsupported_onion": "0/19 rejected (100% misclassified as Apple/Orange)",
+        "non_food_screenshot": "Misclassified as Broccoli (conf=0.606)"
+      }
+    },
+    "freshness_classifier": {
+      "path": "ml/models/freshness_classifier.pth",
+      "architecture": "mobilenet_v2",
+      "classes": [
+        "fresh",
+        "overripe",
+        "ripe",
+        "rotten"
+      ],
+      "test_acc": 0.6327,
+      "fresh_recall": 0.3434,
+      "ripe_recall": 0.5427,
+      "overripe_recall": 0.8667,
+      "rotten_recall": 1.0,
+      "fresh_misclassified_as_ripe": "107/198 (54.0%)",
+      "ripe_misclassified_as_fresh": "62/199 (31.2%)"
+    }
+  }
+}
