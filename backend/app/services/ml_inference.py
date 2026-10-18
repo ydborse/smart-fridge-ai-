@@ -96,6 +96,8 @@ class FreshnessModelService:
     def __init__(self):
         self.food_model = None
         self.food_classes = []
+        self.webcam_food_model = None
+        self.webcam_food_classes = []
         self.freshness_model = None
         self.freshness_classes = []
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -146,6 +148,44 @@ class FreshnessModelService:
             except Exception as e:
                 logger.warning(f"Could not load Freshness Classifier from {freshness_path}: {e}")
                 self.freshness_model = None
+
+        # 3. Load the separate 10-class webcam produce model.
+        webcam_food_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__), "..", "..", "..",
+                "ml", "models", "webcam_food_candidate.pth"
+            )
+        )
+        if os.path.exists(webcam_food_path):
+            try:
+                ckpt = torch.load(webcam_food_path, map_location=self.device)
+                self.webcam_food_classes = ckpt.get("classes", [])
+                if not self.webcam_food_classes:
+                    raise ValueError("Candidate checkpoint has no class list.")
+
+                net = models.mobilenet_v2(weights=None)
+                in_f = net.classifier[1].in_features
+                net.classifier = torch.nn.Sequential(
+                    torch.nn.Dropout(p=0.3),
+                    torch.nn.Linear(in_f, len(self.webcam_food_classes))
+                )
+                net.load_state_dict(ckpt.get("model_state_dict", ckpt))
+                net.to(self.device)
+                net.eval()
+                self.webcam_food_model = net
+                logger.info(
+                    "Loaded webcam produce candidate "
+                    f"({len(self.webcam_food_classes)} classes: "
+                    f"{self.webcam_food_classes})."
+                )
+            except Exception as e:
+                logger.warning(f"Could not load webcam candidate: {e}")
+                self.webcam_food_model = None
+                self.webcam_food_classes = []
+        else:
+            logger.warning(
+                f"Webcam candidate checkpoint not found: {webcam_food_path}"
+            )
 
         if self.food_model is not None:
             self.is_demo_mode = False
@@ -221,7 +261,9 @@ class FreshnessModelService:
 
         return False, "Fresh", 0.0, None
 
-    def predict(self, image_path: str, db: Session) -> Dict[str, Any]:
+    def predict(
+        self, image_path: str, db: Session, use_webcam_model: bool = False
+    ) -> Dict[str, Any]:
         """
         Dual-capability inference:
         1. Model 1 (Food Item & Dairy Classifier): Identifies produce / packaged dairy or 'unknown'
@@ -234,21 +276,29 @@ class FreshnessModelService:
         tensor = transform(img).unsqueeze(0).to(self.device)
 
         predictions: List[Dict[str, Any]] = []
+        active_model = (
+            self.webcam_food_model if use_webcam_model else self.food_model
+        )
+        active_classes = (
+            self.webcam_food_classes if use_webcam_model else self.food_classes
+        )
 
-        if self.food_model:
+        if active_model:
             with torch.inference_mode():
-                food_out = self.food_model(tensor)
+                food_out = active_model(tensor)
                 food_probs = torch.softmax(food_out, dim=1)[0].cpu().numpy()
                 top_food_indices = np.argsort(food_probs)[::-1][:3]
-                pred_item = self.food_classes[top_food_indices[0]]
+                pred_item = active_classes[top_food_indices[0]]
                 food_conf = float(food_probs[top_food_indices[0]])
 
                 is_dairy = pred_item in DAIRY_ITEMS
-                is_unknown = pred_item == "unknown"
+                is_unknown = pred_item == "unknown" or (
+                    use_webcam_model and food_conf < 0.60
+                )
 
                 # Consult specialized Dairy Packaging Classifier when dairy or unknown is suspected
                 dairy_condition_note = None
-                if dairy_service and getattr(dairy_service, "is_loaded", False):
+                if (not use_webcam_model) and dairy_service and getattr(dairy_service, "is_loaded", False):
                     try:
                         dairy_res = dairy_service.predict(image_path)
                         d_cat = dairy_res.get("category", "")
@@ -347,7 +397,9 @@ class FreshnessModelService:
 
                 # Runner-up predictions
                 for idx in top_food_indices[1:]:
-                    runner_item = self.food_classes[idx]
+                    if use_webcam_model and food_conf < 0.60:
+                        break
+                    runner_item = active_classes[idx]
                     runner_conf = float(food_probs[idx])
                     if runner_item != "unknown":
                         predictions.append(self._format_prediction(

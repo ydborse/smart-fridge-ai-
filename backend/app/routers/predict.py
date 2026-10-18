@@ -23,6 +23,7 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 async def predict_freshness(
     file: UploadFile = File(...),
     food_item_id: Optional[int] = Query(None, description="Optional tracked food item ID to associate and update"),
+    use_webcam_model: bool = Query(False, description="Use the 10-class produce model for webcam recognition"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -42,7 +43,9 @@ async def predict_freshness(
 
     try:
         # Run ML inference
-        pred_res = ml_service.predict(file_path, db)
+        pred_res = ml_service.predict(
+            file_path, db, use_webcam_model=use_webcam_model
+        )
 
         top_pred = pred_res["top_prediction"]
         pred_freshness = top_pred.get("freshness_class", "Uncertain")

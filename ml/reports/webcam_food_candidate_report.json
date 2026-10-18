@@ -1,0 +1,231 @@
+{
+  "dataset": "webcam food candidate",
+  "num_train_samples": 8233,
+  "num_val_samples": 1761,
+  "num_test_samples": 1774,
+  "classes": [
+    "apple",
+    "banana",
+    "capsicum",
+    "carrot",
+    "cucumber",
+    "mango",
+    "orange",
+    "potato",
+    "strawberry",
+    "tomato"
+  ],
+  "class_to_idx": {
+    "apple": 0,
+    "banana": 1,
+    "capsicum": 2,
+    "carrot": 3,
+    "cucumber": 4,
+    "mango": 5,
+    "orange": 6,
+    "potato": 7,
+    "strawberry": 8,
+    "tomato": 9
+  },
+  "best_val_accuracy": 0.9710391822827938,
+  "test_accuracy": 0.9656144306651635,
+  "classification_report": {
+    "apple": {
+      "precision": 0.946524064171123,
+      "recall": 0.9833333333333333,
+      "f1-score": 0.9645776566757494,
+      "support": 180.0
+    },
+    "banana": {
+      "precision": 0.994475138121547,
+      "recall": 0.994475138121547,
+      "f1-score": 0.994475138121547,
+      "support": 181.0
+    },
+    "capsicum": {
+      "precision": 0.9807692307692307,
+      "recall": 0.884393063583815,
+      "f1-score": 0.9300911854103343,
+      "support": 173.0
+    },
+    "carrot": {
+      "precision": 0.9939024390243902,
+      "recall": 0.9702380952380952,
+      "f1-score": 0.9819277108433735,
+      "support": 168.0
+    },
+    "cucumber": {
+      "precision": 0.925531914893617,
+      "recall": 0.9886363636363636,
+      "f1-score": 0.9560439560439561,
+      "support": 176.0
+    },
+    "mango": {
+      "precision": 0.9657142857142857,
+      "recall": 0.9337016574585635,
+      "f1-score": 0.949438202247191,
+      "support": 181.0
+    },
+    "orange": {
+      "precision": 0.9621621621621622,
+      "recall": 0.9888888888888889,
+      "f1-score": 0.9753424657534246,
+      "support": 180.0
+    },
+    "potato": {
+      "precision": 0.9371428571428572,
+      "recall": 0.9265536723163842,
+      "f1-score": 0.9318181818181818,
+      "support": 177.0
+    },
+    "strawberry": {
+      "precision": 0.9890710382513661,
+      "recall": 1.0,
+      "f1-score": 0.9945054945054945,
+      "support": 181.0
+    },
+    "tomato": {
+      "precision": 0.9666666666666667,
+      "recall": 0.9830508474576272,
+      "f1-score": 0.9747899159663865,
+      "support": 177.0
+    },
+    "accuracy": 0.9656144306651635,
+    "macro avg": {
+      "precision": 0.9661959796917247,
+      "recall": 0.9653271060034619,
+      "f1-score": 0.9653009907385638,
+      "support": 1774.0
+    },
+    "weighted avg": {
+      "precision": 0.9661196470081799,
+      "recall": 0.9656144306651635,
+      "f1-score": 0.9654128699091132,
+      "support": 1774.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      177,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      180,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      4,
+      0,
+      153,
+      0,
+      8,
+      2,
+      1,
+      0,
+      1,
+      4
+    ],
+    [
+      0,
+      1,
+      0,
+      163,
+      2,
+      0,
+      0,
+      2,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      174,
+      1,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      169,
+      4,
+      8,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      178,
+      0,
+      0,
+      1
+    ],
+    [
+      4,
+      0,
+      3,
+      1,
+      3,
+      2,
+      0,
+      164,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      181,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      174
+    ]
+  ],
+  "training_time_minutes": 19.48,
+  "timestamp": "2026-10-18 16:50:32"
+}

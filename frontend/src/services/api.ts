@@ -129,10 +129,14 @@ export const foodsApi = {
 
 // AI Recognition & Prediction
 export const aiApi = {
-  predictFreshness: async (file: File): Promise<PredictionResponse> => {
+  predictFreshness: async (
+    file: File,
+    useWebcamModel = false
+  ): Promise<PredictionResponse> => {
     const formData = new FormData();
     formData.append('file', file);
     const res = await api.post('/predict', formData, {
+      params: useWebcamModel ? { use_webcam_model: true } : undefined,
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data;

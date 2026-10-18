@@ -152,7 +152,7 @@ export default function WebcamRecognition() {
     setPrediction(null);
 
     try {
-      const result = await aiApi.predictFreshness(capturedFile);
+      const result = await aiApi.predictFreshness(capturedFile, true);
       setPrediction(result);
     } catch (err) {
       setError(
