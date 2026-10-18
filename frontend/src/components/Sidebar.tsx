@@ -28,6 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadAlertsCount = 0, isOpen 
     { to: '/zones', label: 'Refrigerator Zones', icon: Layers },
     { to: '/foods', label: 'Food Management', icon: UtensilsCrossed },
     { to: '/add-food', label: 'AI Recognition', icon: Sparkles, badge: 'AI' },
+    { to: '/webcam', label: 'Webcam Recognition', icon: Camera, badge: 'NEW' },
     { to: '/dairy-ai', label: 'Dairy Packaging AI', icon: Milk, badge: 'NEW' },
     { to: '/audit', label: 'Weekly Fridge Audit', icon: Camera },
     { to: '/alerts', label: 'Alerts', icon: Bell, count: unreadAlertsCount },

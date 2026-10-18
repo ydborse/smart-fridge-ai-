@@ -17,6 +17,7 @@ import { DairyRecognition } from './pages/DairyRecognition';
 import { alertsApi, setConnectionErrorListener, checkBackendHealth } from './services/api';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Login } from './pages/login';
+import WebcamRecognition from './pages/WebcamRecognition';
 
 const AppContent: React.FC = () => {
   const [unreadAlerts, setUnreadAlerts] = useState<number>(0);
@@ -123,6 +124,7 @@ const AppContent: React.FC = () => {
             <Route path="/history" element={<History />} />
             <Route path="/dataset" element={<DatasetReview />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/webcam" element={<WebcamRecognition />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
