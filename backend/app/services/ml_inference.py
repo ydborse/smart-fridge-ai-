@@ -100,6 +100,8 @@ class FreshnessModelService:
         self.webcam_food_classes = []
         self.freshness_model = None
         self.freshness_classes = []
+        self.webcam_freshness_model = None
+        self.webcam_freshness_classes = []
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.is_demo_mode = True
         self.load_models()
@@ -185,6 +187,46 @@ class FreshnessModelService:
         else:
             logger.warning(
                 f"Webcam candidate checkpoint not found: {webcam_food_path}"
+            )
+
+        # Load a separate binary freshness model for webcam recognition.
+        webcam_freshness_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__), "..", "..", "..",
+                "ml", "models", "freshness_webcam_candidate.pth"
+            )
+        )
+        if os.path.exists(webcam_freshness_path):
+            try:
+                ckpt = torch.load(
+                    webcam_freshness_path, map_location=self.device
+                )
+                classes = ckpt.get("classes", ["fresh", "rotten"])
+                if not classes:
+                    raise ValueError("Candidate freshness checkpoint has no classes.")
+
+                net = models.mobilenet_v2(weights=None)
+                in_features = net.classifier[1].in_features
+                net.classifier = torch.nn.Sequential(
+                    torch.nn.Dropout(p=0.2),
+                    torch.nn.Linear(in_features, len(classes))
+                )
+                net.load_state_dict(ckpt.get("model_state_dict", ckpt))
+                net.to(self.device)
+                net.eval()
+                self.webcam_freshness_model = net
+                self.webcam_freshness_classes = classes
+                logger.info(
+                    "Loaded webcam freshness candidate "
+                    f"({classes})."
+                )
+            except Exception as e:
+                logger.warning(f"Could not load webcam freshness candidate: {e}")
+                self.webcam_freshness_model = None
+                self.webcam_freshness_classes = []
+        else:
+            logger.warning(
+                f"Webcam freshness candidate not found: {webcam_freshness_path}"
             )
 
         if self.food_model is not None:
@@ -282,6 +324,17 @@ class FreshnessModelService:
         active_classes = (
             self.webcam_food_classes if use_webcam_model else self.food_classes
         )
+        use_candidate_freshness = (
+            use_webcam_model and self.webcam_freshness_model is not None
+        )
+        active_freshness_model = (
+            self.webcam_freshness_model if use_candidate_freshness
+            else self.freshness_model
+        )
+        active_freshness_classes = (
+            self.webcam_freshness_classes if use_candidate_freshness
+            else self.freshness_classes
+        )
 
         if active_model:
             with torch.inference_mode():
@@ -354,15 +407,23 @@ class FreshnessModelService:
                     has_defect, defect_stage, defect_metric, defect_notes = self._analyze_produce_condition(img, pred_item)
                     fresh_conf = 0.85
 
-                    if self.freshness_model:
-                        fresh_out = self.freshness_model(tensor)
+                    if active_freshness_model:
+                        fresh_out = active_freshness_model(tensor)
                         fresh_probs = torch.softmax(fresh_out, dim=1)[0].cpu().numpy()
                         top_fresh_idx = int(np.argmax(fresh_probs))
-                        raw_fresh = self.freshness_classes[top_fresh_idx].capitalize()
+                        raw_fresh = active_freshness_classes[top_fresh_idx].capitalize()
                         fresh_conf = float(fresh_probs[top_fresh_idx])
 
-                        # 1. If ML model clearly identifies Rotten decay (>= 70% confidence), ALWAYS respect Rotten
-                        if raw_fresh == "Rotten" and fresh_conf >= 0.70:
+                        # Low-confidence webcam freshness predictions require manual inspection.
+                        if use_webcam_model and fresh_conf < 0.60:
+                            final_freshness = "Uncertain"
+                            if not defect_notes:
+                                defect_notes = (
+                                    f"Freshness confidence is low ({fresh_conf:.1%}). "
+                                    "Please inspect the item manually."
+                                )
+                        # A strong Rotten prediction is retained.
+                        elif raw_fresh == "Rotten" and fresh_conf >= 0.70:
                             final_freshness = "Rotten"
                             if not defect_notes:
                                 defect_notes = (

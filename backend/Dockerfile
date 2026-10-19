@@ -18,8 +18,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy source code
 COPY backend /app/backend
 COPY ml /app/ml
-COPY dataset /app/dataset
-COPY storage /app/storage
+
+
 
 WORKDIR /app/backend
 ENV PYTHONPATH=/app/backend

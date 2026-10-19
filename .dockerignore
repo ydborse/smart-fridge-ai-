@@ -1,0 +1,14 @@
+﻿.git/
+dataset/
+storage/
+frontend/
+scratch/
+node_modules/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+.venv/
+venv/
+.env
+**/.env
+.pytest_cache/

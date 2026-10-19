@@ -1,0 +1,65 @@
+{
+  "dataset": "combined webcam freshness dataset",
+  "num_train_samples": 14724,
+  "num_val_samples": 3156,
+  "num_test_samples": 3156,
+  "classes": [
+    "fresh",
+    "rotten"
+  ],
+  "class_to_idx": {
+    "fresh": 0,
+    "rotten": 1
+  },
+  "best_val_accuracy": 0.979404309252218,
+  "test_accuracy": 0.9781368821292775,
+  "classification_report": {
+    "fresh": {
+      "precision": 0.9719029374201787,
+      "recall": 0.9838396897220426,
+      "f1-score": 0.9778348859620944,
+      "support": 1547.0
+    },
+    "rotten": {
+      "precision": 0.9842767295597484,
+      "recall": 0.9726538222498446,
+      "f1-score": 0.9784307596123789,
+      "support": 1609.0
+    },
+    "accuracy": 0.9781368821292775,
+    "macro avg": {
+      "precision": 0.9780898334899636,
+      "recall": 0.9782467559859436,
+      "f1-score": 0.9781328227872367,
+      "support": 3156.0
+    },
+    "weighted avg": {
+      "precision": 0.9782113758081913,
+      "recall": 0.9781368821292775,
+      "f1-score": 0.9781386757920398,
+      "support": 3156.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      1522,
+      25
+    ],
+    [
+      44,
+      1565
+    ]
+  ],
+  "per_food_results": {
+    "other": {
+      "accuracy": 0.9781,
+      "total_tested": 3156,
+      "breakdown": {
+        "fresh": "1522/1547 (98.4%)",
+        "rotten": "1565/1609 (97.3%)"
+      }
+    }
+  },
+  "training_time_minutes": 34.7,
+  "timestamp": "2026-10-18 18:44:09"
+}
