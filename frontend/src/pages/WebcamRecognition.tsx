@@ -13,6 +13,23 @@ import {
 import { aiApi } from '../services/api';
 import type { PredictionResponse } from '../types';
 
+interface ObjectDetectionResult {
+  model: string;
+  image_width: number;
+  image_height: number;
+  detections: {
+    class_name: string;
+    confidence: number;
+    bbox: {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+    };
+  }[];
+  annotated_image: string;
+  message: string;
+}
 export default function WebcamRecognition() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -21,6 +38,11 @@ export default function WebcamRecognition() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
+  const [objectDetection, setObjectDetection] =
+  useState<ObjectDetectionResult | null>(null);
+
+const [objectLoading, setObjectLoading] = useState(false);
+const [liveYoloActive, setLiveYoloActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +55,7 @@ export default function WebcamRecognition() {
     }
 
     setCameraActive(false);
+    setLiveYoloActive(false);
   }
 
   useEffect(() => {
@@ -48,6 +71,81 @@ export default function WebcamRecognition() {
       }
     };
   }, [capturedImage]);
+  useEffect(() => {
+  if (!liveYoloActive || !cameraActive) return;
+
+  let cancelled = false;
+
+  const pause = (ms: number) =>
+    new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+  async function detectLoop() {
+    while (!cancelled) {
+      const video = videoRef.current;
+
+      if (!video || !video.videoWidth || !video.videoHeight) {
+        await pause(200);
+        continue;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        if (!cancelled) {
+          setError('Could not process the live camera frame.');
+          setLiveYoloActive(false);
+        }
+        return;
+      }
+
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', 0.75);
+      });
+
+      if (cancelled) return;
+
+      if (blob) {
+        const file = new File(
+          [blob],
+          `live-yolo-${Date.now()}.jpg`,
+          { type: 'image/jpeg' }
+        );
+
+        try {
+          const result = await aiApi.detectObjects(file);
+
+          if (!cancelled) {
+            setObjectDetection(result as ObjectDetectionResult);
+          }
+        } catch (err) {
+          if (!cancelled) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'Live YOLO detection failed.'
+            );
+            setLiveYoloActive(false);
+          }
+          return;
+        }
+      }
+
+      await pause(400);
+    }
+  }
+
+  void detectLoop();
+
+  return () => {
+    cancelled = true;
+  };
+}, [liveYoloActive, cameraActive]);
 
   async function startCamera() {
     setError(null);
@@ -126,6 +224,7 @@ export default function WebcamRecognition() {
         setCapturedFile(file);
         setCapturedImage(URL.createObjectURL(blob));
         setPrediction(null);
+        setObjectDetection(null);
         setError(null);
         stopCamera();
       },
@@ -135,11 +234,12 @@ export default function WebcamRecognition() {
   }
 
   function retakePhoto() {
-    setCapturedImage(null);
-    setCapturedFile(null);
-    setPrediction(null);
-    setError(null);
-  }
+  setCapturedImage(null);
+  setCapturedFile(null);
+  setPrediction(null);
+  setObjectDetection(null);
+  setError(null);
+}
 
   async function analyzeImage() {
     if (!capturedFile) {
@@ -164,6 +264,29 @@ export default function WebcamRecognition() {
       setLoading(false);
     }
   }
+async function detectObjects() {
+  if (!capturedFile) {
+    setError('Capture an image before detecting objects.');
+    return;
+  }
+
+  setObjectLoading(true);
+  setError(null);
+  setObjectDetection(null);
+
+  try {
+    const result = await aiApi.detectObjects(capturedFile);
+    setObjectDetection(result as ObjectDetectionResult);
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : 'YOLO detection failed. Check the backend logs.'
+    );
+  } finally {
+    setObjectLoading(false);
+  }
+}
 
   const result = prediction?.top_prediction;
 
@@ -220,7 +343,40 @@ export default function WebcamRecognition() {
               capturedImage ? 'hidden' : ''
             }`}
           />
+          {liveYoloActive && objectDetection && (
+  <svg
+    className="pointer-events-none absolute inset-0 h-full w-full"
+    viewBox={`0 0 ${objectDetection.image_width} ${objectDetection.image_height}`}
+    preserveAspectRatio="xMidYMid meet"
+  >
+    {objectDetection.detections.map((detection, index) => {
+      const { x1, y1, x2, y2 } = detection.bbox;
 
+      return (
+        <g key={`${detection.class_name}-${index}-${x1}`}>
+          <rect
+            x={x1}
+            y={y1}
+            width={x2 - x1}
+            height={y2 - y1}
+            fill="none"
+            stroke="#65a30d"
+            strokeWidth="3"
+          />
+          <text
+            x={x1}
+            y={Math.max(y1 - 8, 20)}
+            fill="#65a30d"
+            fontSize="18"
+            fontWeight="600"
+          >
+            {detection.class_name} {Math.round(detection.confidence * 100)}%
+          </text>
+        </g>
+      );
+    })}
+  </svg>
+)}
           {capturedImage && (
             <img
               src={capturedImage}
@@ -270,6 +426,21 @@ export default function WebcamRecognition() {
               >
                 Stop camera
               </button>
+              <button
+  type="button"
+  onClick={() => {
+    if (liveYoloActive) {
+      setLiveYoloActive(false);
+    } else {
+      setObjectDetection(null);
+      setError(null);
+      setLiveYoloActive(true);
+    }
+  }}
+  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-5 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+>
+  {liveYoloActive ? 'Stop Live YOLO' : 'Start Live YOLO'}
+</button>
             </>
           )}
 
@@ -288,6 +459,19 @@ export default function WebcamRecognition() {
                 )}
                 {loading ? 'Analyzing image…' : 'Analyze with AI'}
               </button>
+              <button
+  type="button"
+  onClick={detectObjects}
+  disabled={objectLoading || loading}
+  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-5 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
+>
+  {objectLoading ? (
+    <LoaderCircle className="h-4 w-4 animate-spin" />
+  ) : (
+    <ScanSearch className="h-4 w-4" />
+  )}
+  {objectLoading ? 'Detecting objects…' : 'Detect foods with YOLO'}
+</button>
 
               <button
                 type="button"
@@ -312,7 +496,44 @@ export default function WebcamRecognition() {
           <p>{error}</p>
         </div>
       )}
+      {objectDetection && !liveYoloActive && (
+  <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h2 className="text-lg font-bold text-slate-900">
+          YOLO object detection
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          {objectDetection.message}
+        </p>
+      </div>
 
+      <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
+        {objectDetection.detections.length} detected
+      </span>
+    </div>
+
+    <img
+      src={objectDetection.annotated_image}
+      alt="YOLO object detection results"
+      className="w-full rounded-xl bg-slate-950 object-contain"
+    />
+
+    {objectDetection.detections.map((detection, index) => (
+      <div
+        key={`${detection.class_name}-${index}-${detection.bbox.x1}`}
+        className="rounded-xl border border-slate-200 p-3"
+      >
+        <p className="font-semibold capitalize text-slate-900">
+          {detection.class_name}
+        </p>
+        <p className="text-sm text-slate-600">
+          Detection confidence: {Math.round(detection.confidence * 100)}%
+        </p>
+      </div>
+    ))}
+  </section>
+)}
       {prediction && result && (
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="flex items-center gap-2">

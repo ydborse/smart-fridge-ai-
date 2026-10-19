@@ -141,6 +141,16 @@ export const aiApi = {
     });
     return res.data;
   },
+    detectObjects: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await api.post('/predict/objects', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return res.data;
+  },
   lookupBarcode: async (barcode: string): Promise<BarcodeProduct> => {
     const res = await api.get(`/barcode/${barcode}`);
     return res.data;

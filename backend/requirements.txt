@@ -27,3 +27,4 @@ onnxruntime>=1.16.0
 protobuf>=4.25.0
 psycopg[binary]
 scikit-learn>=1.5
+ultralytics>=8.3.0,<9

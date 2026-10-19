@@ -12,12 +12,50 @@ from app.schemas import PredictionResponse, DairyPredictionResponse
 from app.services.ml_inference import ml_service
 from app.services.dairy_classifier import dairy_service
 from app.security import get_current_user
+from app.services.yolo_detection import yolo_detection_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/predict", tags=["AI Recognition"])
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+@router.post("/objects")
+async def detect_food_objects(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ext = os.path.splitext(file.filename or "")[1].lower()
+
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported image type. Use JPG, JPEG, PNG, or WEBP.",
+        )
+
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    file_path = os.path.join(
+        settings.UPLOAD_DIR,
+        f"yolo_{uuid.uuid4().hex}{ext}",
+    )
+
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        return yolo_detection_service.predict(file_path, db)
+
+    except Exception:
+        logger.exception("YOLO object detection failed")
+        raise HTTPException(
+            status_code=500,
+            detail="YOLO detection failed. Check the backend logs.",
+        )
+
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 @router.post("", response_model=PredictionResponse)
 async def predict_freshness(
