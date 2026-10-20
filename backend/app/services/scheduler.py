@@ -211,7 +211,7 @@ async def job_process_repeating_alerts():
                     user=user,
                     title=alert.title,
                     message=alert.message,
-                    channel="sms",
+                    channel="telegram",
                     metadata=metadata,
                     db=db,
                     alert_id=alert.id,
@@ -269,7 +269,102 @@ async def job_daily_digest_8am():
         logger.error(f"Error in daily digest job: {e}")
     finally:
         db.close()
+async def job_daily_spoilage_digest():
+    """Send one grouped daily summary of unresolved spoiled/expired foods."""
+    db = SessionLocal()
+    try:
+        users = db.query(User).filter(User.is_active == True).all()
 
+        for user in users:
+            alerts = (
+                db.query(Alert)
+                .filter(
+                    Alert.user_id == user.id,
+                    Alert.is_resolved == False,
+                    Alert.alert_type.in_([
+                        "Food Spoilage Alert",
+                        "Expired / Remove Now",
+                    ]),
+                )
+                .order_by(Alert.created_at.desc())
+                .all()
+            )
+
+            grouped_food_items = []
+            message_lines = []
+            seen_food_ids = set()
+
+            for alert in alerts:
+                if not alert.food_item_id:
+                    continue
+
+                if alert.food_item_id in seen_food_ids:
+                    continue
+
+                food = db.query(FoodItem).filter(
+                    FoodItem.id == alert.food_item_id,
+                    FoodItem.user_id == user.id,
+                ).first()
+
+                if not food or food.is_used or food.is_discarded:
+                    continue
+
+                seen_food_ids.add(food.id)
+
+                zone_name = food.zone.name if food.zone else "Fridge"
+                expiry = (
+                    food.expiry_date.strftime("%b %d, %Y")
+                    if food.expiry_date else "Unknown"
+                )
+                status = food.freshness_status or alert.alert_type
+                reason = alert.evidence_details or alert.message
+
+                grouped_food_items.append({
+                    "name": food.name,
+                    "category": food.category or "Food",
+                    "status": status,
+                    "zone_name": zone_name,
+                    "expiry_date": expiry,
+                    "reason": reason,
+                    "alert_type": alert.alert_type,
+                    "item_type": getattr(food, "item_type", None),
+                })
+
+                message_lines.append(
+                    f"- {food.name}: {status}; Location: {zone_name}; "
+                    f"Expiry: {expiry}; Reason: {reason}"
+                )
+
+            if grouped_food_items:
+                await notification.send(
+                    user=user,
+                    title=(
+                        "Daily Spoilage Summary: "
+                        f"{len(grouped_food_items)} item(s) need attention"
+                    ),
+                    message=(
+                        "Here are the unresolved spoiled or expired foods "
+                        "that still need attention today:\n"
+                        + "\n".join(message_lines)
+                    ),
+                    channel="all",
+                    metadata={
+                        "alert_type": "Daily Spoilage Summary",
+                        "food_items": grouped_food_items,
+                    },
+                    db=db,
+                )
+
+                logger.info(
+                    "Daily spoilage summary processed for user %s: %s items",
+                    user.id,
+                    len(grouped_food_items),
+                )
+
+    except Exception as e:
+        logger.error("Error in daily spoilage digest: %s", e)
+    finally:
+        db.close()
 
 async def job_weekly_audit_reminder():
     db = SessionLocal()
@@ -291,25 +386,82 @@ async def job_weekly_audit_reminder():
 
 def start_scheduler():
     # 1. Update sensors every 30 seconds
-    scheduler.add_job(job_update_sensors, IntervalTrigger(seconds=30), id="sensor_sim", replace_existing=True, misfire_grace_time=60, coalesce=True)
+    scheduler.add_job(
+        job_update_sensors,
+        IntervalTrigger(seconds=30),
+        id="sensor_sim",
+        replace_existing=True,
+        misfire_grace_time=60,
+        coalesce=True,
+    )
 
-    # 2. Hourly check for critical alerts
-    scheduler.add_job(job_check_alerts, IntervalTrigger(hours=1), id="hourly_alerts", replace_existing=True, misfire_grace_time=60, coalesce=True)
+    # 2. Check for new alerts every minute
+    scheduler.add_job(
+        job_check_alerts,
+        IntervalTrigger(minutes=1),
+        id="minute_alerts",
+        replace_existing=True,
+        misfire_grace_time=60,
+        coalesce=True,
+    )
 
-    # 3. Process repeating SMS alerts every 1 minute (for 15m intervals & 2h cutoff)
-    scheduler.add_job(job_process_repeating_alerts, IntervalTrigger(minutes=1), id="repeating_sms_alerts", replace_existing=True, misfire_grace_time=60, coalesce=True)
+    # 3. Process repeating reminders every minute
+    scheduler.add_job(
+        job_process_repeating_alerts,
+        IntervalTrigger(minutes=1),
+        id="repeating_sms_alerts",
+        replace_existing=True,
+        misfire_grace_time=60,
+        coalesce=True,
+    )
 
-    # 4. Daily 8:00 AM main alert run & Daily Digest email
-    scheduler.add_job(job_check_alerts, CronTrigger(hour=8, minute=0), id="daily_8am_alerts", replace_existing=True, misfire_grace_time=300, coalesce=True)
-    scheduler.add_job(job_daily_digest_8am, CronTrigger(hour=8, minute=0), id="daily_8am_digest", replace_existing=True, misfire_grace_time=300, coalesce=True)
+    # 4. Existing daily email digest — 8 AM India time
+    scheduler.add_job(
+        job_daily_digest_8am,
+        CronTrigger(
+            hour=8,
+            minute=0,
+            timezone="Asia/Kolkata",
+        ),
+        id="daily_8am_digest",
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=True,
+    )
 
-    # 5. Weekly Sunday audit reminder at 10:00 AM
-    scheduler.add_job(job_weekly_audit_reminder, CronTrigger(day_of_week="sun", hour=10, minute=0), id="weekly_audit", replace_existing=True, misfire_grace_time=300, coalesce=True)
+    # 5. Grouped spoilage summary — 8 AM India time
+    scheduler.add_job(
+        job_daily_spoilage_digest,
+        CronTrigger(
+            hour=8,
+            minute=0,
+            timezone="Asia/Kolkata",
+        ),
+        id="daily_spoilage_digest",
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=True,
+    )
 
+    # 6. Weekly audit — Sunday at 10 AM India time
+    scheduler.add_job(
+        job_weekly_audit_reminder,
+        CronTrigger(
+            day_of_week="sun",
+            hour=10,
+            minute=0,
+            timezone="Asia/Kolkata",
+        ),
+        id="weekly_audit",
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=True,
+    )
+
+    # Start the scheduler
     if not scheduler.running:
-        scheduler.start()
-        logger.info("APScheduler background jobs started successfully.")
-
+     scheduler.start()
+     logger.info("APScheduler background jobs started successfully.")
 def shutdown_scheduler():
     if scheduler.running:
         scheduler.shutdown()

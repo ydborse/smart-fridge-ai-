@@ -127,6 +127,44 @@ async def create_spoilage_alert(
     db.commit()
     db.refresh(alert)
 
+    # Send an individual notification for this newly created alert.
+    metadata = {
+        "alert_id": alert.id,
+        "alert_type": alert.alert_type,
+        "severity": alert.severity,
+        "food_name": food.name,
+        "category": food.category or "Food",
+        "food_item_id": food.id,
+        "zone_name": zone_name,
+        "expiry_date": (
+            food.expiry_date.strftime("%b %d, %Y")
+            if food.expiry_date else "Unknown"
+        ),
+        "status": food.freshness_status or alert.alert_type,
+        "evidence_type": alert.evidence_type,
+        "evidence_details": alert.evidence_details,
+        "action_recommended": (
+            alert.action_recommended or "Inspect this food item"
+        ),
+    }
+
+    try:
+        await send_notification(
+            user=user,
+            title=alert.title,
+            message=alert.message,
+            channel="all",
+            metadata=metadata,
+            db=db,
+            alert_id=alert.id,
+            repeat_count=1,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to dispatch notifications for new alert #%s",
+            alert.id,
+        )
+
     return alert, True
 
 
@@ -536,6 +574,13 @@ async def run_all_alert_rules(db: Session):
                 continue
 
             if food:
+                # Spoilage alerts were already sent when created.
+                # Skip them here to prevent duplicate notifications.
+                if alert.alert_type in (
+                    "Food Spoilage Alert",
+                    "Expired / Remove Now",
+                ):
+                    continue
                 # Send email and web push individually.
                 # Telegram is grouped into one summary below.
                 for channel in ("email", "web_push"):
@@ -552,17 +597,19 @@ async def run_all_alert_rules(db: Session):
 
                 # Only include foods that qualify for the user's configured
                 # mobile notification preferences.
+                                # Send an individual Telegram alert for each newly
+                # detected food item that qualifies for mobile alerts.
                 if sms_eligible:
-                    grouped_food_items.append({
-                        "name": food.name,
-                        "category": food.category or "Food",
-                        "status": food.freshness_status or alert.alert_type,
-                        "zone_name": zone_name,
-                        "expiry_date": expiry,
-                        "reason": alert.evidence_details or alert.message,
-                        "alert_type": alert.alert_type,
-                        "item_type": getattr(food, "item_type", None),
-                    })
+                    await send_notification(
+                        user=user,
+                        title=alert.title,
+                        message=alert.message,
+                        channel="telegram",
+                        metadata=metadata,
+                        db=db,
+                        alert_id=alert.id,
+                        repeat_count=1,
+                    )
             else:
                 # Preserve normal notification handling for temperature,
                 # compatibility, and other non-food alerts.
