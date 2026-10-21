@@ -85,7 +85,11 @@ export const AddFood: React.FC = () => {
   const [barcodeExpiryDate, setBarcodeExpiryDate] = useState<string>('');
   const [isScanningLive, setIsScanningLive] = useState<boolean>(false);
   const [ocrLoading, setOcrLoading] = useState<boolean>(false);
+  const [ocrCameraOpen, setOcrCameraOpen] = useState(false);
+  const [ocrCameraActive, setOcrCameraActive] = useState(false);
 
+  const ocrVideoRef = useRef<HTMLVideoElement>(null);
+  const ocrCameraStreamRef = useRef<MediaStream | null>(null);
   // Manual input state
   const [manualName, setManualName] = useState('');
   const [manualCategory, setManualCategory] = useState('Dairy');
@@ -97,6 +101,11 @@ export const AddFood: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ocrInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+  return () => {
+    ocrCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+  };
+}, []);
 
   useEffect(() => {
     zonesApi.getAll().then((data) => {
@@ -250,7 +259,104 @@ export const AddFood: React.FC = () => {
       setOcrLoading(false);
     }
   };
+const stopOcrCamera = () => {
+  ocrCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+  ocrCameraStreamRef.current = null;
 
+  if (ocrVideoRef.current) {
+    ocrVideoRef.current.srcObject = null;
+  }
+
+  setOcrCameraActive(false);
+  setOcrCameraOpen(false);
+};
+
+const startOcrCamera = async () => {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showToast('error', 'Webcam access requires localhost or HTTPS.');
+    return;
+  }
+
+  try {
+    setOcrCameraOpen(true);
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    });
+
+    ocrCameraStreamRef.current = stream;
+
+    const video = ocrVideoRef.current;
+
+    if (!video) {
+      stream.getTracks().forEach((track) => track.stop());
+      ocrCameraStreamRef.current = null;
+      throw new Error('Could not initialize webcam preview.');
+    }
+
+    video.srcObject = stream;
+    await video.play();
+
+    setOcrCameraActive(true);
+  } catch (err) {
+    ocrCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    ocrCameraStreamRef.current = null;
+    setOcrCameraActive(false);
+    setOcrCameraOpen(false);
+
+    showToast(
+      'error',
+      err instanceof Error ? err.message : 'Could not open webcam.',
+    );
+  }
+};
+
+const captureOcrLabel = () => {
+  const video = ocrVideoRef.current;
+
+  if (!video || !video.videoWidth || !video.videoHeight) {
+    showToast('warning', 'Wait for the camera preview before capturing.');
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    showToast('error', 'Could not capture the package label.');
+    return;
+  }
+
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  canvas.toBlob(
+    (blob) => {
+      if (!blob) {
+        showToast('error', 'Could not create the label image.');
+        return;
+      }
+
+      const file = new File(
+        [blob],
+        `expiry-label-${Date.now()}.jpg`,
+        { type: 'image/jpeg' },
+      );
+
+      stopOcrCamera();
+      void handleOcrExpiryUpload(file);
+    },
+    'image/jpeg',
+    0.92,
+  );
+};
   const handleConfirmBarcodeSave = async () => {
     if (!barcodeProduct) return;
     setLoading(true);
@@ -870,35 +976,98 @@ export const AddFood: React.FC = () => {
               </div>
 
               {/* OCR Expiry Label Photo Scanner Feature */}
-              <div className="p-3.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-800">
-                    Scan Expiry Date from Package Label Photo (OCR)
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    Takes photo of label stamped "EXP / BEST BEFORE" and autofills date
-                  </p>
-                </div>
-                <input
-                  type="file"
-                  ref={ocrInputRef}
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleOcrExpiryUpload(f);
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={ocrLoading}
-                  onClick={() => ocrInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  {ocrLoading ? 'Reading...' : 'Scan Label'}
-                </button>
-              </div>
+<div className="p-3.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  <div>
+    <p className="text-xs font-bold text-slate-800">
+      Scan Expiry Date from Package Label (OCR)
+    </p>
+    <p className="text-[11px] text-slate-400 mt-1">
+      Capture the printed EXP or BEST BEFORE date, then verify it.
+    </p>
+  </div>
+
+  <input
+    type="file"
+    ref={ocrInputRef}
+    accept="image/*"
+    capture="environment"
+    className="hidden"
+    onChange={(e) => {
+      const file = e.target.files?.[0];
+
+      if (file) {
+        void handleOcrExpiryUpload(file);
+      }
+
+      e.currentTarget.value = '';
+    }}
+  />
+
+  <div className="flex flex-wrap gap-2">
+    <button
+      type="button"
+      disabled={ocrLoading}
+      onClick={() => ocrInputRef.current?.click()}
+      className="px-3 py-2 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold"
+    >
+      {ocrLoading ? 'Reading...' : 'Upload Label'}
+    </button>
+
+    <button
+      type="button"
+      disabled={ocrLoading || ocrCameraOpen}
+      onClick={() => void startOcrCamera()}
+      className="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1.5"
+    >
+      <Camera className="w-3.5 h-3.5" />
+      Use Webcam
+    </button>
+  </div>
+</div>
+
+<div
+  className={
+    ocrCameraOpen
+      ? 'mt-3 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3'
+      : 'hidden'
+  }
+>
+  <div>
+    <p className="text-sm font-bold text-slate-800">
+      Capture the printed expiry date
+    </p>
+    <p className="text-xs text-slate-500 mt-1">
+      Move close to the date, keep the text in focus, and use good lighting.
+    </p>
+  </div>
+
+  <video
+    ref={ocrVideoRef}
+    autoPlay
+    playsInline
+    muted
+    className="w-full max-h-80 rounded-xl bg-slate-950 object-contain"
+  />
+
+  <div className="flex flex-wrap gap-2">
+    <button
+      type="button"
+      disabled={!ocrCameraActive || ocrLoading}
+      onClick={captureOcrLabel}
+      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
+    >
+      Capture & Read Date
+    </button>
+
+    <button
+      type="button"
+      onClick={stopOcrCamera}
+      className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+    >
+      Cancel
+    </button>
+  </div>
+</div>
 
               {/* Save Button */}
               <div className="pt-2 flex justify-end">
