@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Settings as SettingsIcon,
   Save,
@@ -28,7 +29,7 @@ import { subscribeToWebPush, unsubscribeFromWebPush } from '../services/pwa';
 import { useNotification } from '../context/NotificationContext';
 import { NotificationLog, AlertItem } from '../types';
 
-export const Settings: React.FC = () => {
+export const Settings: React.FC = () => {const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -193,6 +194,18 @@ export const Settings: React.FC = () => {
     loadLogs();
     loadIncidents();
   }, []);
+  useEffect(() => {
+  if (location.hash !== '#profile') return;
+
+  const timer = window.setTimeout(() => {
+    document.getElementById('profile')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, 150);
+
+  return () => window.clearTimeout(timer);
+}, [location.pathname, location.hash]);
 
   const formatCountdown = (isoString?: string) => {
     if (!isoString) return null;
@@ -638,6 +651,46 @@ export const Settings: React.FC = () => {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
+        {/* Profile & Contact */}
+<div
+  id="profile"
+  className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 scroll-mt-6"
+>
+  <h2 className="text-lg font-bold text-slate-800">
+    Profile & Contact
+  </h2>
+
+  <div>
+    <label className="mb-2 block text-sm font-medium text-slate-700">
+      Full Name
+    </label>
+    <input
+      type="text"
+      value={fullName}
+      onChange={(e) => setFullName(e.target.value)}
+      required
+      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-600"
+      placeholder="Enter your name"
+    />
+  </div>
+
+  <div>
+    <label className="mb-2 block text-sm font-medium text-slate-700">
+      Phone Number
+    </label>
+    <input
+      type="tel"
+      value={phoneNumber}
+      onChange={(e) => setPhoneNumber(e.target.value)}
+      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-600"
+      placeholder="Enter your phone number"
+    />
+  </div>
+
+  <p className="text-xs text-slate-500">
+    Use the Save Settings & Preferences button below to save changes.
+  </p>
+</div>
         {/* =================================================================== */}
         {/* 1. PRIMARY: EMAIL NOTIFICATIONS (SMTP / Resend / Brevo)             */}
         {/* =================================================================== */}

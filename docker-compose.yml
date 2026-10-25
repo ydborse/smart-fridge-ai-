@@ -39,6 +39,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - ./backend:/app/backend
       - ./storage:/app/storage
       - ./ml:/app/ml
       - ./dataset:/app/dataset

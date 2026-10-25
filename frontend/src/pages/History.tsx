@@ -43,14 +43,51 @@ export const History: React.FC = () => {
     loadHistory();
   }, [filterAction]);
 
-  const stats = data?.stats || {
-    total_added: 24,
-    total_consumed: 18,
-    total_wasted: 2,
-    efficiency_rate_percent: 90.0,
-    money_saved: 54.2,
-    money_wasted: 4.5
-  };
+  const stats = data?.stats ?? {
+  total_added: 0,
+  total_consumed: 0,
+  total_wasted: 0,
+  waste_rate_percent: 0,
+  efficiency_rate_percent: 0,
+  money_saved: 0,
+  money_wasted: 0
+};
+
+const monthlyComparison = Array.isArray(data?.monthly_comparison)
+  ? data.monthly_comparison
+  : [];
+
+const baselineWaste = Number(monthlyComparison[0]?.wasted ?? 0);
+const latestWaste = Number(
+  monthlyComparison[monthlyComparison.length - 1]?.wasted ?? 0
+);
+
+const wasteChangePercent =
+  monthlyComparison.length > 1 && baselineWaste > 0
+    ? Math.round(((baselineWaste - latestWaste) / baselineWaste) * 100)
+    : null;
+
+const wasteTrendText =
+  wasteChangePercent === null
+    ? 'Not enough history'
+    : wasteChangePercent > 0
+      ? `${wasteChangePercent}% less waste`
+      : wasteChangePercent < 0
+        ? `${Math.abs(wasteChangePercent)}% more waste`
+        : 'Waste unchanged';
+
+const wasteTrendClass =
+  wasteChangePercent === null
+    ? 'bg-slate-100 text-slate-600'
+    : wasteChangePercent > 0
+      ? 'bg-emerald-50 text-emerald-600'
+      : wasteChangePercent < 0
+        ? 'bg-rose-50 text-rose-600'
+        : 'bg-slate-100 text-slate-600';
+
+const totalResolvedActivities =
+  Number(stats.total_consumed ?? 0) +
+  Number(stats.total_wasted ?? 0);
 
   const getActionBadge = (action: string) => {
     switch (action) {
@@ -91,7 +128,7 @@ export const History: React.FC = () => {
           <div className="text-2xl sm:text-3xl font-black text-emerald-600">
             {stats.efficiency_rate_percent}%
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Food eaten vs discarded</p>
+         <p className="text-[11px] text-slate-400 mt-1">Based on recorded consumption and waste</p>
         </div>
 
         {/* Money Saved */}
@@ -103,7 +140,7 @@ export const History: React.FC = () => {
           <div className="text-2xl sm:text-3xl font-black text-slate-900">
             ${stats.money_saved}
           </div>
-          <p className="text-[11px] text-emerald-600 font-medium mt-1">Saved from spoilage</p>
+          <p className="text-[11px] text-emerald-600 font-medium mt-1">Estimated value of consumed food</p>
         </div>
 
         {/* Total Consumed */}
@@ -132,21 +169,22 @@ export const History: React.FC = () => {
       </div>
 
       {/* Monthly Consumed vs Wasted Bar Chart */}
-      {data?.monthly_comparison && (
+      {monthlyComparison.length > 0 && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-soft">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Monthly Consumption vs Waste</h3>
-              <p className="text-xs text-slate-500">Pantry optimization over past 5 months</p>
+              <p className="text-xs text-slate-500"> Recorded consumption and waste over the last 5 calendar months</p>
             </div>
-            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-              90% Less Waste
-            </span>
+           <span
+  className={`text-xs font-semibold px-2.5 py-1 rounded-full ${wasteTrendClass}`}
+>
+  {wasteTrendText}</span>
           </div>
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.monthly_comparison} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={monthlyComparison} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} />
                 <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
@@ -166,7 +204,17 @@ export const History: React.FC = () => {
             </ResponsiveContainer>
           </div>
         </div>
-      )}
+      )} {totalResolvedActivities === 0 && (
+  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+    <p className="font-semibold">
+      No consumption or waste activity recorded yet
+    </p>
+    <p className="mt-1 text-xs">
+      Mark food items as consumed or discarded to build your analytics
+      from actual activity records.
+    </p>
+  </div>
+)}
 
       {/* Activity Timeline Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft p-6">

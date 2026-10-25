@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Plus, Menu, Sparkles, User as UserIcon } from 'lucide-react';
+import { Bell, Plus, Menu, Sparkles, User as UserIcon, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
@@ -9,7 +9,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ unreadAlertsCount = 0, onMenuToggle }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const firstName = user?.full_name?.split(' ')[0] || 'Chef';
@@ -62,13 +62,29 @@ export const Navbar: React.FC<NavbarProps> = ({ unreadAlertsCount = 0, onMenuTog
             </span>
           )}
         </button>
-
-        {/* User Avatar */}
-        <div className="flex items-center gap-2 pl-1">
+         {/* Logout Button — ADD THIS */}
+        <button
+          onClick={() => {
+            logout();
+            navigate('/');
+          }}
+          className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+        >
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
+        {/* User Avatar / Profile shortcut */}
+        <button
+          type="button"
+          onClick={() => navigate('/settings#profile')}
+          title="Profile settings"
+          aria-label="Open profile settings"
+          className="flex items-center gap-2 pl-1 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 border-2 border-emerald-400 flex items-center justify-center text-emerald-800 font-bold text-sm shadow-xs">
             {firstName.charAt(0)}
           </div>
-        </div>
+        </button>
       </div>
     </header>
   );

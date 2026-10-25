@@ -28,8 +28,9 @@ FOOD_RELATED_CLASSES = {
     "wine glass",
     "cup",
     "bowl",
+    "tomato",
+    "cucumber",
 }
-
 # Only accept the existing food classifier's label when it is
 # confident enough. This threshold needs real-image validation.
 FOOD_CLASSIFICATION_THRESHOLD = 0.45
@@ -73,7 +74,7 @@ class YoloDetectionService:
             result = ml_service.predict(
                 crop_path,
                 db,
-                use_webcam_model=True,
+                use_webcam_model=False,
             )
 
             top = result.get("top_prediction", {})
@@ -112,11 +113,12 @@ class YoloDetectionService:
 
     def predict(self, image_path: str, db: Session) -> dict:
         results = self._get_model().predict(
-            source=image_path,
-            conf=0.25,
-            imgsz=640,
-            verbose=False,
-        )
+         source=image_path,
+         conf=0.45,
+         iou=0.5,
+         imgsz=640,
+         verbose=False,
+)
 
         if not results:
             raise RuntimeError("YOLO returned no inference results.")
@@ -130,10 +132,6 @@ class YoloDetectionService:
             for box in result.boxes:
                 class_id = int(box.cls[0].item())
                 yolo_label = result.names[class_id]
-
-                if yolo_label.lower() not in FOOD_RELATED_CLASSES:
-                    continue
-
                 detection_confidence = float(box.conf[0].item())
 
                 x1, y1, x2, y2 = [
@@ -152,13 +150,10 @@ class YoloDetectionService:
                 if crop.size == 0:
                     continue
 
-                final_label, class_confidence, label_source = (
-                    self._refine_food_label(
-                        crop,
-                        db,
-                        yolo_label,
-                    )
-                )
+                # Trust the custom YOLO model's trained class prediction.
+                final_label = yolo_label
+                class_confidence = None
+                label_source = "custom_yolo"
 
                 label = f"{final_label} {detection_confidence:.0%}"
 
@@ -219,7 +214,7 @@ class YoloDetectionService:
         )
 
         return {
-            "model": "YOLOv8n + food classifier",
+            "model": "Custom YOLO 10-class food detector",
             "image_width": width,
             "image_height": height,
             "detections": detections,

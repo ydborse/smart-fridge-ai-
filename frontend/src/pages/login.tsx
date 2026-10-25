@@ -1,16 +1,31 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Refrigerator, Eye, EyeOff, Loader2 } from 'lucide-react';
+import {
+  Refrigerator,
+  UserRound,
+  Mail,
+  LockKeyhole,
+  Eye,
+  EyeOff,
+  Loader2,
+  Leaf,
+} from 'lucide-react';
+import { authApi } from '../services/api';
+import './LoginNeumorphic.css';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState('demo@smartfridge.com');
   const [password, setPassword] = useState('SmartFridge123!');
   const [showPassword, setShowPassword] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -25,90 +40,190 @@ export const Login: React.FC = () => {
     } catch (err: any) {
       setError(
         err.response?.data?.detail ||
-        'Login failed. Check your credentials and backend connection.'
+          'Login failed. Check your credentials and backend connection.'
       );
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+
+    try {
+      await authApi.register({
+        full_name: fullName.trim(),
+        email: signupEmail.trim(),
+        password: signupPassword,
+      });
+      // Use the existing auth context so the new account gets the same session flow as login.
+      await login(signupEmail.trim(), signupPassword);
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      setError(
+        err.response?.data?.detail ||
+          'Sign-up failed. Check your details or try another email address.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const switchMode = (signup: boolean) => {
+    setError('');
+    setIsSignup(signup);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-            <Refrigerator size={34} />
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900">Smart Fridge AI</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Sign in to manage your fridge and food alerts
-          </p>
-        </div>
+    <main className="sf-auth-page">
+      <div className={`sf-auth-scene ${isSignup ? 'sf-auth-scene--signup' : ''}`}>
+        <div className={`sf-auth-card ${isSignup ? 'sf-auth-card--flipped' : ''}`}>
+          <section className="sf-auth-face sf-auth-front" aria-hidden={isSignup}>
+            <form className="sf-auth-form" onSubmit={handleSubmit}>
+              <div className="sf-auth-brand">
+                <span className="sf-auth-logo"><Refrigerator size={27} strokeWidth={1.8} /></span>
+                <span>SMART FRIDGE AI</span>
+              </div>
+              <h1>Welcome back</h1>
+              <p className="sf-auth-subtitle">Sign in to manage your fridge and food alerts</p>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-700">
-              Email address
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-              placeholder="you@example.com"
-            />
-          </div>
+              <div className="sf-auth-input">
+                <UserRound size={19} aria-hidden="true" />
+                <input
+                  id="sf-login-email"
+                  type="email"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email address"
+                  aria-label="Email address"
+                  tabIndex={isSignup ? -1 : 0}
+                />
+              </div>
 
-          <div>
-            <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-700">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 pr-12 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-                placeholder="Enter your password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+              <div className="sf-auth-input">
+                <LockKeyhole size={19} aria-hidden="true" />
+                <input
+                  id="sf-login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  aria-label="Password"
+                  tabIndex={isSignup ? -1 : 0}
+                />
+                <button
+                  className="sf-auth-eye"
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={isSignup ? -1 : 0}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              {error && !isSignup && <div role="alert" className="sf-auth-error">{error}</div>}
+
+              <button className="sf-auth-submit" type="submit" disabled={submitting} tabIndex={isSignup ? -1 : 0}>
+                {submitting && !isSignup && <Loader2 size={18} className="sf-auth-spinner" />}
+                {submitting && !isSignup ? 'Signing in…' : 'Sign in'}
               </button>
-            </div>
-          </div>
 
-          {error && (
-            <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+              <p className="sf-auth-demo-note">Demo credentials are prefilled for local testing.</p>
+              <p className="sf-auth-switch">
+                New to Smart Fridge AI?{' '}
+                <button type="button" onClick={() => switchMode(true)} tabIndex={isSignup ? -1 : 0}>Create account</button>
+              </p>
+            </form>
+          </section>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting && <Loader2 size={19} className="animate-spin" />}
-            {submitting ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
+          <section className="sf-auth-face sf-auth-back" aria-hidden={!isSignup}>
+            <form className="sf-auth-form sf-auth-form--signup" onSubmit={handleSignup}>
+              <div className="sf-auth-brand">
+                <span className="sf-auth-logo"><Leaf size={27} strokeWidth={1.8} /></span>
+                <span>JOIN SMART FRIDGE</span>
+              </div>
+              <h1>Create account</h1>
+              <p className="sf-auth-subtitle">A smarter, fresher kitchen starts here</p>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
-          Demo credentials are prefilled for local testing.
-        </p>
+              <div className="sf-auth-input">
+                <UserRound size={19} aria-hidden="true" />
+                <input
+                  id="sf-signup-name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Full name"
+                  aria-label="Full name"
+                  tabIndex={isSignup ? 0 : -1}
+                />
+              </div>
+
+              <div className="sf-auth-input">
+                <Mail size={19} aria-hidden="true" />
+                <input
+                  id="sf-signup-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  placeholder="Email address"
+                  aria-label="Email address"
+                  tabIndex={isSignup ? 0 : -1}
+                />
+              </div>
+
+              <div className="sf-auth-input">
+                <LockKeyhole size={19} aria-hidden="true" />
+                <input
+                  id="sf-signup-password"
+                  type={showSignupPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  placeholder="Password (8+ characters)"
+                  aria-label="Create password"
+                  tabIndex={isSignup ? 0 : -1}
+                />
+                <button
+                  className="sf-auth-eye"
+                  type="button"
+                  onClick={() => setShowSignupPassword((value) => !value)}
+                  aria-label={showSignupPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={isSignup ? 0 : -1}
+                >
+                  {showSignupPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              {error && isSignup && <div role="alert" className="sf-auth-error">{error}</div>}
+
+              <button className="sf-auth-submit" type="submit" disabled={submitting} tabIndex={isSignup ? 0 : -1}>
+                {submitting && isSignup && <Loader2 size={18} className="sf-auth-spinner" />}
+                {submitting && isSignup ? 'Creating account…' : 'Create account'}
+              </button>
+
+              <p className="sf-auth-switch">
+                Already have an account?{' '}
+                <button type="button" onClick={() => switchMode(false)} tabIndex={isSignup ? 0 : -1}>Sign in</button>
+              </p>
+            </form>
+          </section>
+        </div>
       </div>
-    </div>
+      <p className="sf-auth-footer">Fresh food. Smarter living.</p>
+    </main>
   );
 };
 
