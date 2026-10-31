@@ -14,6 +14,8 @@ import { History } from './pages/History';
 import { DatasetReview } from './pages/DatasetReview';
 import { Settings } from './pages/Settings';
 import { DairyRecognition } from './pages/DairyRecognition';
+import { Recipes } from './pages/Recipes';
+import { ShoppingList } from './pages/ShoppingList';
 import { alertsApi, setConnectionErrorListener, checkBackendHealth } from './services/api';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Login } from './pages/login';
@@ -24,7 +26,29 @@ const AppContent: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [isBackendOffline, setIsBackendOffline] = useState<boolean>(false);
   const { user, loading } = useAuth();
-  
+
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('smart-fridge-theme') === 'dark';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+    document.documentElement.style.colorScheme = isDarkMode ? 'dark' : 'light';
+
+    try {
+      window.localStorage.setItem(
+        'smart-fridge-theme',
+        isDarkMode ? 'dark' : 'light',
+      );
+    } catch {
+      // The selected theme still works for the current session.
+    }
+  }, [isDarkMode]);
+
   const fetchUnreadAlerts = async () => {
     try {
       const all = await alertsApi.getAll({ is_read: false });
@@ -43,7 +67,6 @@ const AppContent: React.FC = () => {
     });
 
     fetchUnreadAlerts();
-    // Use dynamic polling: normal interval 20s if connected, slower 45s health probe if disconnected
     const interval = setInterval(() => {
       if (isBackendOffline) {
         checkBackendHealth().then((healthy) => {
@@ -58,7 +81,6 @@ const AppContent: React.FC = () => {
     }, isBackendOffline ? 45000 : 20000);
 
     return () => clearInterval(interval);
-
   }, [isBackendOffline]);
 
   if (loading) {
@@ -71,17 +93,13 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
-
-      {/* Sidebar Navigation */}
       <Sidebar
         unreadAlertsCount={unreadAlerts}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Backend Disconnected Alert Banner */}
         {isBackendOffline && (
           <div className="bg-amber-600 text-white px-4 py-2 text-xs sm:text-sm font-medium flex items-center justify-between shadow-md transition-all sticky top-0 z-50">
             <div className="flex items-center gap-2">
@@ -110,6 +128,8 @@ const AppContent: React.FC = () => {
         <Navbar
           unreadAlertsCount={unreadAlerts}
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          isDarkMode={isDarkMode}
+          onThemeToggle={() => setIsDarkMode((current) => !current)}
         />
 
         <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
@@ -118,6 +138,8 @@ const AppContent: React.FC = () => {
             <Route path="/zones" element={<Zones />} />
             <Route path="/foods" element={<FoodManagement />} />
             <Route path="/add-food" element={<AddFood />} />
+            <Route path="/recipes" element={<Recipes />} />
+            <Route path="/shopping-list" element={<ShoppingList />} />
             <Route path="/dairy-ai" element={<DairyRecognition />} />
             <Route path="/audit" element={<WeeklyAudit />} />
             <Route path="/alerts" element={<Alerts />} />
@@ -133,16 +155,14 @@ const AppContent: React.FC = () => {
   );
 };
 
-export const App: React.FC = () => {
-  return (
-    <Router>
-      <AuthProvider>
-        <NotificationProvider>
-          <AppContent />
-        </NotificationProvider>
-      </AuthProvider>
-    </Router>
-  );
-};
+export const App: React.FC = () => (
+  <Router>
+    <AuthProvider>
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
+    </AuthProvider>
+  </Router>
+);
 
 export default App;

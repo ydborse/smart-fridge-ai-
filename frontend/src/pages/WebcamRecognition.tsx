@@ -75,6 +75,9 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
   if (!liveYoloActive || !cameraActive) return;
 
   let cancelled = false;
+  const labelHistory = new Map<number, Array<{ label: string; confidence: number }>>();
+  const stableLabels = new Map<number, { label: string; confidence: number }>();
+  const previousCenters = new Map<number, { x: number; y: number }>();
 
   const pause = (ms: number) =>
     new Promise<void>((resolve) => window.setTimeout(resolve, ms));
@@ -88,9 +91,13 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
         continue;
       }
 
+      const sourceWidth = video.videoWidth;
+      const sourceHeight = video.videoHeight;
+      const scale = Math.min(1, 640 / sourceWidth);
+
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
 
       const context = canvas.getContext('2d');
 
@@ -121,7 +128,92 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
           const result = await aiApi.detectObjects(file);
 
           if (!cancelled) {
-            setObjectDetection(result as ObjectDetectionResult);
+            const rawResult = result as ObjectDetectionResult;
+
+            if (rawResult.detections.length === 0) {
+              labelHistory.clear();
+              stableLabels.clear();
+              previousCenters.clear();
+            }
+
+            const imageDiagonal = Math.hypot(
+              rawResult.image_width,
+              rawResult.image_height,
+            );
+
+            const stabilizedDetections = rawResult.detections.map(
+              (detection, index) => {
+                const { x1, y1, x2, y2 } = detection.bbox;
+                const center = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+                const previousCenter = previousCenters.get(index);
+
+                if (
+                  previousCenter &&
+                  Math.hypot(
+                    center.x - previousCenter.x,
+                    center.y - previousCenter.y,
+                  ) > imageDiagonal * 0.2
+                ) {
+                  labelHistory.delete(index);
+                  stableLabels.delete(index);
+                }
+
+                previousCenters.set(index, center);
+
+                const history = [
+                  ...(labelHistory.get(index) ?? []),
+                  {
+                    label: detection.class_name,
+                    confidence: detection.confidence,
+                  },
+                ].slice(-3);
+
+                labelHistory.set(index, history);
+
+                const counts = new Map<string, number>();
+                for (const item of history) {
+                  counts.set(item.label, (counts.get(item.label) ?? 0) + 1);
+                }
+
+                const consensus = [...counts.entries()].find(
+                  ([, count]) => count >= 2,
+                );
+
+                let stable = stableLabels.get(index);
+
+                if (!stable) {
+                  stable = {
+                    label: detection.class_name,
+                    confidence: detection.confidence,
+                  };
+                }
+
+                if (consensus) {
+                  const consensusLabel = consensus[0];
+                  const latestMatching = [...history]
+                    .reverse()
+                    .find((item) => item.label === consensusLabel);
+
+                  stable = {
+                    label: consensusLabel,
+                    confidence: latestMatching?.confidence ?? detection.confidence,
+                  };
+                }
+
+                stableLabels.set(index, stable);
+
+                return {
+                  ...detection,
+                  class_name: stable.label,
+                  confidence: stable.confidence,
+                };
+              },
+            );
+
+            setObjectDetection({
+              ...rawResult,
+              detections: stabilizedDetections,
+            });
           }
         } catch (err) {
           if (!cancelled) {
@@ -136,7 +228,7 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
         }
       }
 
-      await pause(400);
+      await pause(150);
     }
   }
 
@@ -291,7 +383,7 @@ async function detectObjects() {
   const result = prediction?.top_prediction;
 
   const percentage = (value?: number) =>
-    typeof value === 'number' ? `${Math.round(value * 100)}%` : '—';
+    typeof value === 'number' ? `${Math.round(value * 100)}%` : 'â€”';
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
@@ -457,7 +549,7 @@ async function detectObjects() {
                 ) : (
                   <ScanSearch className="h-4 w-4" />
                 )}
-                {loading ? 'Analyzing image…' : 'Analyze with AI'}
+                {loading ? 'Analyzing imageâ€¦' : 'Analyze with AI'}
               </button>
               <button
   type="button"
@@ -470,7 +562,7 @@ async function detectObjects() {
   ) : (
     <ScanSearch className="h-4 w-4" />
   )}
-  {objectLoading ? 'Detecting objects…' : 'Detect foods with YOLO'}
+  {objectLoading ? 'Detecting objectsâ€¦' : 'Detect foods with YOLO'}
 </button>
 
               <button

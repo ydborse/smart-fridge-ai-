@@ -2,30 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light;
+  --kitchen-canvas: #f7f6ef;
+  --kitchen-paper: #fffefa;
+  --kitchen-ink: #26352c;
+  --kitchen-muted: #647066;
+  --kitchen-border: #e1e2d8;
+  --kitchen-green: #315c43;
+  --kitchen-green-dark: #254a35;
+  --kitchen-green-soft: #edf2e8;
+}
+
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-800 antialiased min-h-screen;
+    @apply antialiased min-h-screen;
+    margin: 0;
+    background-color: var(--kitchen-canvas);
+    color: var(--kitchen-ink);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  button, input, select, textarea {
+    font: inherit;
+  }
+
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--kitchen-green);
+    outline-offset: 3px;
   }
 }
 
-/* Custom sleek scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+.kitchen-page {
+  color: var(--kitchen-ink);
 }
 
-/* Glassmorphism helpers */
+.kitchen-heading {
+  color: #172b20;
+  font-family: Georgia, Cambria, "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+}
+
+.kitchen-panel {
+  background: var(--kitchen-paper);
+  border: 1px solid var(--kitchen-border);
+  border-radius: 1.1rem;
+  box-shadow: 0 2px 8px rgba(38, 53, 44, 0.025);
+}
+
+/* Keep existing page helpers available while the redesign is rolled out gradually. */
 .glass {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
@@ -38,7 +65,6 @@
   border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-/* Subtle micro-animations */
 @keyframes subtle-float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-4px); }
@@ -46,4 +72,685 @@
 
 .animate-float {
   animation: subtle-float 3s ease-in-out infinite;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1e9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c6cfc1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9eae9b;
+}
+
+/* MIDNIGHT SAPPHIRE — unified dark theme */
+
+/* SMART-FRIDGE-DARK-MODE */
+/* MIDNIGHT SAPPHIRE — unified dark palette */
+
+html.dark {
+  color-scheme: dark;
+  --sf-bg: #091426;
+  --sf-panel: #12233B;
+  --sf-panel-raised: #172B46;
+  --sf-panel-hover: #1C3453;
+  --sf-border: #294361;
+  --sf-text: #F1F6FF;
+  --sf-muted: #C0CEE3;
+  --sf-accent: #78ADFF;
+  --sf-accent-hover: #9BC2FF;
+  --sf-danger: #FFADB8;
+  --sf-warning: #FFD38A;
+}
+
+html.dark body,
+html.dark #root {
+  background: var(--sf-bg) !important;
+  color: var(--sf-text);
+}
+
+html.dark body {
+  color-scheme: dark;
+}
+
+html.dark .kitchen-page {
+  background:
+    radial-gradient(ellipse at 0% 0%, #172C49 0%, transparent 48%),
+    var(--sf-bg) !important;
+  color: var(--sf-text);
+}
+
+html.dark .kitchen-heading {
+  color: var(--sf-text) !important;
+}
+
+html.dark .kitchen-panel,
+html.dark .glass,
+html.dark .glass-card {
+  background-color: var(--sf-panel) !important;
+  color: var(--sf-text) !important;
+  border-color: var(--sf-border) !important;
+}
+
+/* Consistent dark surfaces across all pages. */
+html.dark [class~="bg-white"],
+html.dark [class~="bg-white/90"],
+html.dark [class~="bg-white/95"],
+html.dark [class~="bg-slate-50"],
+html.dark [class~="bg-slate-50/50"],
+html.dark [class~="bg-slate-50/70"],
+html.dark [class~="bg-slate-100"],
+html.dark [class~="bg-gray-50"],
+html.dark [class~="bg-gray-100"] {
+  background-color: var(--sf-panel) !important;
+}
+
+html.dark [class~="bg-slate-50/70"],
+html.dark [class~="bg-slate-50/50"] {
+  background-color: #152740 !important;
+}
+
+html.dark [class~="bg-slate-100"],
+html.dark [class~="bg-gray-100"] {
+  background-color: #1A304B !important;
+}
+
+/* Heading, body and secondary text contrast. */
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark [class~="text-slate-950"],
+html.dark [class~="text-slate-900"],
+html.dark [class~="text-slate-800"],
+html.dark [class~="text-gray-900"],
+html.dark [class~="text-gray-800"],
+html.dark [class~="text-black"] {
+  color: var(--sf-text) !important;
+}
+
+html.dark [class~="text-slate-700"],
+html.dark [class~="text-slate-600"],
+html.dark [class~="text-slate-500"],
+html.dark [class~="text-gray-700"],
+html.dark [class~="text-gray-600"],
+html.dark [class~="text-gray-500"] {
+  color: var(--sf-muted) !important;
+}
+
+/* Food names previously rendered in almost-black green. */
+html.dark [class~="text-[#315c43]"],
+html.dark [class~="text-[#315C43]"],
+html.dark [class~="text-emerald-950"],
+html.dark [class~="text-emerald-900"],
+html.dark [class~="text-green-950"],
+html.dark [class~="text-green-900"],
+html.dark [class~="text-green-800"] {
+  color: #E0EBFF !important;
+}
+
+/* Preserve green as a semantic signal for fresh food only. */
+html.dark [class~="text-emerald-800"],
+html.dark [class~="text-emerald-700"],
+html.dark [class~="text-emerald-600"],
+html.dark [class~="text-green-700"],
+html.dark [class~="text-green-600"] {
+  color: #8FE1B7 !important;
+}
+
+/* Active navigation: sapphire, not pale green. */
+html.dark [class~="bg-emerald-50"][class~="text-emerald-700"] {
+  background-color: #203D61 !important;
+  color: #C4DBFF !important;
+  box-shadow: inset 3px 0 0 var(--sf-accent) !important;
+}
+
+/* Soft outlines instead of bright, distracting borders. */
+html.dark [class~="border-slate-100"],
+html.dark [class~="border-slate-200"],
+html.dark [class~="border-gray-100"],
+html.dark [class~="border-gray-200"] {
+  border-color: var(--sf-border) !important;
+}
+
+html.dark [class~="border-emerald-100"],
+html.dark [class~="border-emerald-200"],
+html.dark [class~="border-green-200"] {
+  border-color: #345849 !important;
+}
+
+/* Fresh-food badges: distinct but not neon. */
+html.dark [class~="bg-emerald-50"],
+html.dark [class~="bg-emerald-50/50"],
+html.dark [class~="bg-green-50"],
+html.dark [class~="bg-emerald-100"],
+html.dark [class~="bg-green-100"] {
+  background-color: #1B352F !important;
+}
+
+/* Expired and spoiled food: muted burgundy warning panels. */
+html.dark [class~="bg-rose-50"],
+html.dark [class~="bg-rose-50/40"],
+html.dark [class~="bg-red-50"],
+html.dark [class~="bg-red-100"],
+html.dark [class~="bg-rose-100"] {
+  background-color: #382431 !important;
+}
+
+html.dark [class~="text-rose-950"],
+html.dark [class~="text-rose-900"],
+html.dark [class~="text-rose-800"],
+html.dark [class~="text-rose-700"],
+html.dark [class~="text-red-950"],
+html.dark [class~="text-red-900"],
+html.dark [class~="text-red-800"],
+html.dark [class~="text-red-700"],
+html.dark [class~="text-red-600"] {
+  color: var(--sf-danger) !important;
+}
+
+html.dark [class~="border-rose-100"],
+html.dark [class~="border-rose-200"],
+html.dark [class~="border-red-200"] {
+  border-color: #845565 !important;
+}
+
+/* Use-soon states: amber on a subdued brown-navy surface. */
+html.dark [class~="bg-amber-50"],
+html.dark [class~="bg-amber-50/80"],
+html.dark [class~="bg-amber-100"] {
+  background-color: #382F24 !important;
+}
+
+html.dark [class~="text-amber-950"],
+html.dark [class~="text-amber-900"],
+html.dark [class~="text-amber-800"],
+html.dark [class~="text-amber-700"],
+html.dark [class~="text-amber-600"] {
+  color: var(--sf-warning) !important;
+}
+
+html.dark [class~="border-amber-100"],
+html.dark [class~="border-amber-200"] {
+  border-color: #76603D !important;
+}
+
+/* Informational panels use blue-on-blue instead of pale blue. */
+html.dark [class~="bg-blue-50"],
+html.dark [class~="bg-blue-50/50"],
+html.dark [class~="bg-indigo-50"],
+html.dark [class~="bg-violet-50"],
+html.dark [class~="bg-purple-50"] {
+  background-color: #1A304D !important;
+}
+
+html.dark [class~="text-blue-900"],
+html.dark [class~="text-blue-800"],
+html.dark [class~="text-indigo-900"],
+html.dark [class~="text-purple-900"],
+html.dark [class~="text-violet-900"] {
+  color: #C2D9FF !important;
+}
+
+html.dark [class~="border-blue-200"],
+html.dark [class~="border-indigo-200"],
+html.dark [class~="border-purple-200"] {
+  border-color: #35567D !important;
+}
+
+/* Unify primary buttons around sapphire blue. */
+html.dark [class~="bg-blue-600"],
+html.dark [class~="bg-blue-700"],
+html.dark [class~="bg-emerald-600"],
+html.dark [class~="bg-emerald-700"],
+html.dark [class~="bg-green-600"],
+html.dark [class~="bg-green-700"] {
+  background-color: var(--sf-accent) !important;
+  border-color: var(--sf-accent) !important;
+  color: #08182B !important;
+}
+
+html.dark [class~="bg-blue-600"] *,
+html.dark [class~="bg-blue-700"] *,
+html.dark [class~="bg-emerald-600"] *,
+html.dark [class~="bg-emerald-700"] *,
+html.dark [class~="bg-green-600"] *,
+html.dark [class~="bg-green-700"] * {
+  color: #08182B !important;
+}
+
+html.dark [class*="hover:bg-blue-"]:hover,
+html.dark [class*="hover:bg-emerald-"]:hover,
+html.dark [class*="hover:bg-green-"]:hover {
+  background-color: var(--sf-accent-hover) !important;
+  border-color: var(--sf-accent-hover) !important;
+  color: #08182B !important;
+}
+
+/* Common navigation/card hover states must never flash white. */
+html.dark [class*="hover:bg-white"]:hover,
+html.dark [class*="hover:bg-slate-50"]:hover,
+html.dark [class*="hover:bg-gray-50"]:hover,
+html.dark [class*="hover:bg-[#fcfbf6]"]:hover {
+  background-color: var(--sf-panel-hover) !important;
+  color: var(--sf-text) !important;
+}
+
+html.dark [class~="hover:bg-[#fcfbf6]"]:hover,
+html.dark [class~="hover:bg-white"]:hover {
+  background-color: var(--sf-panel-hover) !important;
+}
+
+/* Secondary buttons and interactive surfaces. */
+html.dark button,
+html.dark [role="button"] {
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+html.dark button:not([class*="bg-blue-"]):not([class*="bg-emerald-"]):not([class*="bg-green-"]):hover {
+  border-color: #5276A0;
+}
+
+/* Search, filter, settings and form controls. */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #0D1B2E !important;
+  color: var(--sf-text) !important;
+  border-color: #355172 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #9FB4D2 !important;
+  opacity: 1;
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: var(--sf-accent) !important;
+  outline-color: var(--sf-accent) !important;
+  box-shadow: 0 0 0 3px rgb(120 173 255 / 18%) !important;
+}
+
+/* Consistent separators and selection. */
+html.dark hr {
+  border-color: var(--sf-border) !important;
+}
+
+html.dark ::selection {
+  background: #315B8E;
+  color: #FFFFFF;
+}
+
+/* Scrollbars match the sapphire surface system. */
+html.dark ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: #091426;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #355172;
+  border: 2px solid #091426;
+  border-radius: 10px;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #587BA8;
+}
+
+/* Keep the animated theme toggle. */
+.theme-toggle-icon {
+  transform-origin: center;
+  animation: sapphire-theme-enter 360ms cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes sapphire-theme-enter {
+  0% {
+    opacity: .35;
+    transform: rotate(-35deg) scale(.72);
+  }
+  65% {
+    opacity: 1;
+    transform: rotate(9deg) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle-icon {
+    animation: none !important;
+  }
+
+  html.dark button,
+  html.dark [role="button"] {
+    transition: none !important;
+  }
+}
+
+
+/* MIDNIGHT-SAPPHIRE-CONTRAST-PATCH */
+
+/* Replace custom pale/cream backgrounds used by recipe and shopping cards. */
+html.dark [class*="bg-[#f"],
+html.dark [class*="bg-[#F"] {
+  background-color: #12233B !important;
+  background-image: none !important;
+  border-color: #294361 !important;
+}
+
+/* Catch standard white surfaces and pale utility backgrounds too. */
+html.dark [class~="bg-white"],
+html.dark [class~="bg-white/90"],
+html.dark [class~="bg-white/95"],
+html.dark [class~="bg-slate-50"],
+html.dark [class~="bg-slate-50/50"],
+html.dark [class~="bg-slate-50/70"],
+html.dark [class~="bg-slate-100"],
+html.dark [class~="bg-gray-50"],
+html.dark [class~="bg-gray-100"] {
+  background-color: #12233B !important;
+  background-image: none !important;
+  border-color: #294361 !important;
+}
+
+/* Custom dark text colours were unreadable on dark surfaces. */
+html.dark [class*="text-[#"] {
+  color: #D7E4F7 !important;
+}
+
+/* Keep headings bright and body copy comfortably legible. */
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark [class~="text-slate-950"],
+html.dark [class~="text-slate-900"],
+html.dark [class~="text-slate-800"],
+html.dark [class~="text-gray-900"],
+html.dark [class~="text-gray-800"],
+html.dark [class~="text-black"] {
+  color: #F1F6FF !important;
+}
+
+html.dark [class~="text-slate-700"],
+html.dark [class~="text-slate-600"],
+html.dark [class~="text-slate-500"],
+html.dark [class~="text-gray-700"],
+html.dark [class~="text-gray-600"],
+html.dark [class~="text-gray-500"] {
+  color: #C0CEE3 !important;
+}
+
+/* Custom-coloured primary buttons and gradient buttons become sapphire. */
+html.dark button[class*="bg-[#"],
+html.dark a[class*="bg-[#"],
+html.dark [role="button"][class*="bg-[#"],
+html.dark button[class*="bg-emerald-"],
+html.dark button[class*="bg-green-"],
+html.dark button[class*="bg-blue-"],
+html.dark a[class*="bg-emerald-"],
+html.dark a[class*="bg-green-"],
+html.dark a[class*="bg-blue-"],
+html.dark button[class*="from-emerald-"],
+html.dark button[class*="from-green-"],
+html.dark button[class*="from-blue-"],
+html.dark a[class*="from-emerald-"],
+html.dark a[class*="from-green-"],
+html.dark a[class*="from-blue-"] {
+  background-color: #78ADFF !important;
+  background-image: none !important;
+  border-color: #78ADFF !important;
+  color: #091426 !important;
+}
+
+html.dark button[class*="bg-[#"] *,
+html.dark a[class*="bg-[#"] *,
+html.dark [role="button"][class*="bg-[#"] *,
+html.dark button[class*="bg-emerald-"] *,
+html.dark button[class*="bg-green-"] *,
+html.dark button[class*="bg-blue-"] *,
+html.dark button[class*="from-emerald-"] *,
+html.dark button[class*="from-green-"] *,
+html.dark button[class*="from-blue-"] * {
+  color: #091426 !important;
+}
+
+/* Keep custom cream hover styles dark instead of flashing white. */
+html.dark [class*="hover:bg-[#f"]:hover,
+html.dark [class*="hover:bg-[#F"]:hover,
+html.dark [class*="hover:bg-white"]:hover,
+html.dark [class*="hover:bg-slate-50"]:hover,
+html.dark [class*="hover:bg-gray-50"]:hover {
+  background-color: #1C3453 !important;
+  background-image: none !important;
+  color: #F1F6FF !important;
+}
+
+/* Preserve meaningful status colours. */
+html.dark [class~="text-emerald-800"],
+html.dark [class~="text-emerald-700"],
+html.dark [class~="text-emerald-600"],
+html.dark [class~="text-green-700"],
+html.dark [class~="text-green-600"] {
+  color: #8FE1B7 !important;
+}
+
+html.dark [class~="text-rose-900"],
+html.dark [class~="text-rose-800"],
+html.dark [class~="text-rose-700"],
+html.dark [class~="text-red-900"],
+html.dark [class~="text-red-800"],
+html.dark [class~="text-red-700"],
+html.dark [class~="text-red-600"] {
+  color: #FFADB8 !important;
+}
+
+html.dark [class~="text-amber-900"],
+html.dark [class~="text-amber-800"],
+html.dark [class~="text-amber-700"],
+html.dark [class~="text-amber-600"] {
+  color: #FFD38A !important;
+}
+
+
+/* MIDNIGHT-SAPPHIRE-PALE-SURFACE-FIX-2 */
+
+/* Remove light custom hex-colour surfaces that escaped earlier overrides. */
+html.dark [class*="bg-[#d"],
+html.dark [class*="bg-[#D"],
+html.dark [class*="bg-[#e"],
+html.dark [class*="bg-[#E"],
+html.dark [class*="bg-[#f"],
+html.dark [class*="bg-[#F"] {
+  background-color: #172B46 !important;
+  background-image: none !important;
+  border-color: #294361 !important;
+}
+
+/* Neutralize pale Tailwind gradient utilities on cards and banners. */
+html.dark [class*="from-white"],
+html.dark [class*="to-white"],
+html.dark [class*="from-slate-50"],
+html.dark [class*="to-slate-50"],
+html.dark [class*="from-gray-50"],
+html.dark [class*="to-gray-50"],
+html.dark [class*="from-emerald-50"],
+html.dark [class*="to-emerald-50"],
+html.dark [class*="from-green-50"],
+html.dark [class*="to-green-50"],
+html.dark [class*="from-amber-50"],
+html.dark [class*="to-amber-50"],
+html.dark [class*="from-blue-50"],
+html.dark [class*="to-blue-50"],
+html.dark [class*="from-[#d"],
+html.dark [class*="to-[#d"],
+html.dark [class*="from-[#e"],
+html.dark [class*="to-[#e"],
+html.dark [class*="from-[#f"],
+html.dark [class*="to-[#f"] {
+  background-color: #172B46 !important;
+  background-image: none !important;
+}
+
+/* Recipe badges, tracked-food chips, and the shopping-list header. */
+html.dark [class*="bg-emerald-50"],
+html.dark [class*="bg-green-50"],
+html.dark [class*="bg-emerald-100"],
+html.dark [class*="bg-green-100"] {
+  background-color: #1B352F !important;
+  background-image: none !important;
+  border-color: #345849 !important;
+}
+
+html.dark [class*="bg-amber-50"],
+html.dark [class*="bg-yellow-50"],
+html.dark [class*="bg-amber-100"],
+html.dark [class*="bg-yellow-100"],
+html.dark [class*="bg-amber-200"] {
+  background-color: #382F24 !important;
+  background-image: none !important;
+  border-color: #76603D !important;
+}
+
+html.dark [class*="bg-blue-50"],
+html.dark [class*="bg-blue-100"],
+html.dark [class*="bg-blue-200"] {
+  background-color: #1A304D !important;
+  background-image: none !important;
+  border-color: #35567D !important;
+}
+
+/* Weekly audit upload area: dark sapphire surface, readable instructions. */
+html.dark [class*="bg-blue-300"] {
+  background-color: #193758 !important;
+  background-image: none !important;
+  border-color: #527AA8 !important;
+  color: #F1F6FF !important;
+}
+
+html.dark [class*="bg-blue-300"] * {
+  color: #E0EBFF !important;
+}
+
+/* Make pale-green informational notices dark and readable. */
+html.dark [class*="bg-emerald-50"] *,
+html.dark [class*="bg-green-50"] *,
+html.dark [class*="bg-emerald-100"] *,
+html.dark [class*="bg-green-100"] * {
+  color: #BCEBD5 !important;
+}
+
+/* Amber alert recommendations: dark brown-navy with warm readable text. */
+html.dark [class*="bg-amber-50"] *,
+html.dark [class*="bg-yellow-50"] *,
+html.dark [class*="bg-amber-100"] *,
+html.dark [class*="bg-yellow-100"] *,
+html.dark [class*="bg-amber-200"] * {
+  color: #FFD38A !important;
+}
+
+/* Rose/red warnings remain muted burgundy rather than pale pink. */
+html.dark [class*="bg-rose-50"],
+html.dark [class*="bg-rose-100"],
+html.dark [class*="bg-red-50"],
+html.dark [class*="bg-red-100"] {
+  background-color: #382431 !important;
+  background-image: none !important;
+  border-color: #845565 !important;
+}
+
+html.dark [class*="bg-rose-50"] *,
+html.dark [class*="bg-rose-100"] *,
+html.dark [class*="bg-red-50"] *,
+html.dark [class*="bg-red-100"] * {
+  color: #FFADB8 !important;
+}
+
+/* Headings and custom-coloured item names must remain visible. */
+html.dark [class*="text-[#"] {
+  color: #D7E4F7 !important;
+}
+
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6 {
+  color: #F1F6FF !important;
+}
+
+/* Never allow custom cream hover styles to flash white. */
+html.dark [class*="hover:bg-[#"]:hover,
+html.dark [class*="hover:bg-white"]:hover,
+html.dark [class*="hover:bg-slate-50"]:hover,
+html.dark [class*="hover:bg-gray-50"]:hover {
+  background-color: #1C3453 !important;
+  background-image: none !important;
+  color: #F1F6FF !important;
+}
+
+/* Keep pale blue, green, amber and rose text suitable for dark surfaces. */
+html.dark [class*="text-blue-100"],
+html.dark [class*="text-blue-200"],
+html.dark [class*="text-indigo-100"],
+html.dark [class*="text-indigo-200"] {
+  color: #CBDCFF !important;
+}
+
+html.dark [class*="text-emerald-100"],
+html.dark [class*="text-emerald-200"],
+html.dark [class*="text-green-100"],
+html.dark [class*="text-green-200"] {
+  color: #BCEBD5 !important;
+}
+
+html.dark [class*="text-amber-100"],
+html.dark [class*="text-amber-200"],
+html.dark [class*="text-yellow-100"],
+html.dark [class*="text-yellow-200"] {
+  color: #FFD38A !important;
+}
+
+html.dark [class*="text-rose-100"],
+html.dark [class*="text-rose-200"],
+html.dark [class*="text-red-100"],
+html.dark [class*="text-red-200"] {
+  color: #FFCCD3 !important;
+}
+
+/* Prevent pale separators and card outlines. */
+html.dark [class*="border-white"],
+html.dark [class*="border-slate-100"],
+html.dark [class*="border-slate-200"],
+html.dark [class*="border-gray-100"],
+html.dark [class*="border-gray-200"] {
+  border-color: #294361 !important;
 }

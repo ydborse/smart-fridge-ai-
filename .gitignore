@@ -40,3 +40,14 @@ __pycache__/
 
 /storage/foods/*
 !/storage/foods/.gitkeep
+
+# Local backups and temporary development files
+*.bak
+*.bak.*
+*.before-*
+*.backup
+/backup-ui-before-redesign/
+
+# Local YOLO model and generated training/evaluation runs
+/backend/yolov8n.pt
+/ml/yolo_runs/

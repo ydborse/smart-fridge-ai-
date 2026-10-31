@@ -55,7 +55,7 @@ services:
       dockerfile: Dockerfile
     container_name: smart_fridge_frontend
     ports:
-      - "5173:80"
+      - "5174:80"
     depends_on:
       - backend
     restart: unless-stopped

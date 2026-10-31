@@ -1,14 +1,22 @@
+﻿
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Plus, Menu, Sparkles, User as UserIcon, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, Menu, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   unreadAlertsCount?: number;
   onMenuToggle?: () => void;
+  isDarkMode?: boolean;
+  onThemeToggle?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ unreadAlertsCount = 0, onMenuToggle }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  unreadAlertsCount = 0,
+  onMenuToggle,
+  isDarkMode = false,
+  onThemeToggle,
+}) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -16,7 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({ unreadAlertsCount = 0, onMenuTog
 
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
-      {/* Left: Mobile hamburger & Greeting */}
+      {/* Left: Mobile hamburger and greeting */}
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuToggle}
@@ -29,40 +37,54 @@ export const Navbar: React.FC<NavbarProps> = ({ unreadAlertsCount = 0, onMenuTog
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-slate-800 tracking-tight">
-              Hello, {firstName} 👋
+              Hello, {firstName} {String.fromCodePoint(0x1F44B)}
             </h2>
           </div>
+
           <p className="text-xs text-slate-500 hidden sm:block">
             Your smart pantry is monitored and fresh.
           </p>
         </div>
       </div>
 
-      {/* Right: Quick Add + Notification Bell + User Avatar */}
+      {/* Right: Theme toggle, notifications, logout and profile */}
       <div className="flex items-center gap-3">
-        {/* Quick Add Food Button */}
-        <Link
-          to="/add-food"
-          className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm shadow-emerald-500/20 transition-all transform active:scale-95"
+        {/* Theme toggle */}
+        <button
+          type="button"
+          onClick={onThemeToggle}
+          disabled={!onThemeToggle}
+          aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="flex items-center justify-center gap-2 theme-toggle-button rounded-xl border border-slate-200 px-3 py-2 text-slate-600 transition-colors hover:bg-slate-50"
         >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span className="hidden sm:inline">Add Food</span>
-        </Link>
+          {isDarkMode ? (
+            <Sun className="h-4 w-4 theme-toggle-icon" />
+          ) : (
+            <Moon className="h-4 w-4 theme-toggle-icon" />
+          )}
 
-        {/* Notification Bell */}
+          <span className="hidden xl:inline text-xs font-medium">
+            {isDarkMode ? 'Light mode' : 'Dark mode'}
+          </span>
+        </button>
+
+        {/* Notification bell */}
         <button
           onClick={() => navigate('/alerts')}
           className="relative p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all duration-150"
           aria-label="Notifications"
         >
           <Bell className="w-5 h-5" />
+
           {unreadAlertsCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
               {unreadAlertsCount > 9 ? '9+' : unreadAlertsCount}
             </span>
           )}
         </button>
-         {/* Logout Button — ADD THIS */}
+
+        {/* Logout button */}
         <button
           onClick={() => {
             logout();
@@ -73,7 +95,8 @@ export const Navbar: React.FC<NavbarProps> = ({ unreadAlertsCount = 0, onMenuTog
           <LogOut size={18} />
           <span>Logout</span>
         </button>
-        {/* User Avatar / Profile shortcut */}
+
+        {/* User avatar / profile shortcut */}
         <button
           type="button"
           onClick={() => navigate('/settings#profile')}
