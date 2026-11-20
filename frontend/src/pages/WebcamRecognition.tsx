@@ -383,7 +383,7 @@ async function detectObjects() {
   const result = prediction?.top_prediction;
 
   const percentage = (value?: number) =>
-    typeof value === 'number' ? `${Math.round(value * 100)}%` : 'â€”';
+    typeof value === 'number' ? `${Math.round(value * 100)}%` : '—';
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
@@ -549,7 +549,7 @@ async function detectObjects() {
                 ) : (
                   <ScanSearch className="h-4 w-4" />
                 )}
-                {loading ? 'Analyzing imageâ€¦' : 'Analyze with AI'}
+                {loading ? 'Analyzing image...' : 'Analyze with AI'}
               </button>
               <button
   type="button"
@@ -562,7 +562,7 @@ async function detectObjects() {
   ) : (
     <ScanSearch className="h-4 w-4" />
   )}
-  {objectLoading ? 'Detecting objectsâ€¦' : 'Detect foods with YOLO'}
+  {objectLoading ? 'Detecting objects...' : 'Detect foods with YOLO'}
 </button>
 
               <button
