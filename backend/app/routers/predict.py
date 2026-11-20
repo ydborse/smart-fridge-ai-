@@ -85,16 +85,27 @@ async def predict_freshness(
     try:
         inference_path = file_path
         effective_webcam_model = use_webcam_model
+        yolo_label = None
+        yolo_conf = None
 
         if use_webcam_model:
             try:
                 import cv2
                 yres = yolo_detection_service._get_model().predict(
-                    source=file_path, conf=0.30, iou=0.5, imgsz=416, verbose=False
+                    source=file_path,
+                    conf=0.35,
+                    iou=0.45,
+                    imgsz=416,
+                    agnostic_nms=True,
+                    verbose=False,
                 )
                 if yres and yres[0].boxes is not None and len(yres[0].boxes) > 0:
-                    box = max(yres[0].boxes, key=lambda b: float(b.conf[0].item()))
-                    img = yres[0].orig_img
+                    res0 = yres[0]
+                    box = max(res0.boxes, key=lambda b: float(b.conf[0].item()))
+                    yolo_label = str(res0.names[int(box.cls[0].item())]).strip().lower()
+                    yolo_conf = float(box.conf[0].item())
+
+                    img = res0.orig_img
                     h, w = img.shape[:2]
                     x1, y1, x2, y2 = [int(round(v)) for v in box.xyxy[0].tolist()]
                     crop = img[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
@@ -114,6 +125,19 @@ async def predict_freshness(
             os.remove(crop_path)
 
         top_pred = pred_res["top_prediction"]
+
+        # Two-stage ensemble fusion when YOLOv8n and MobileNetV2 agree on the class
+        cls_label = str(top_pred.get("item_name", "")).strip().lower()
+        cls_conf = float(top_pred.get("confidence", 0.0) or 0.0)
+        if yolo_label and yolo_conf is not None and yolo_label == cls_label:
+            fused_conf = round(0.55 * yolo_conf + 0.45 * cls_conf, 3)
+            top_pred["confidence"] = fused_conf
+            top_pred["needs_manual_check"] = (
+                fused_conf < 0.60 or top_pred.get("freshness_class") == "Uncertain"
+            )
+            if pred_res.get("all_predictions"):
+                pred_res["all_predictions"][0]["confidence"] = fused_conf
+
         pred_freshness = top_pred.get("freshness_class", "Uncertain")
         confidence = top_pred.get("confidence", 0.0)
 

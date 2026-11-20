@@ -1,16 +1,18 @@
-
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Camera,
+  Check,
   CheckCircle2,
   CircleAlert,
   LoaderCircle,
+  Plus,
   RefreshCw,
   ScanSearch,
   Video,
   VideoOff,
 } from 'lucide-react';
-import { aiApi } from '../services/api';
+import { aiApi, foodsApi } from '../services/api';
 import type { PredictionResponse } from '../types';
 
 interface ObjectDetectionResult {
@@ -30,6 +32,7 @@ interface ObjectDetectionResult {
   annotated_image: string;
   message: string;
 }
+
 export default function WebcamRecognition() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -39,11 +42,13 @@ export default function WebcamRecognition() {
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
   const [objectDetection, setObjectDetection] =
-  useState<ObjectDetectionResult | null>(null);
+    useState<ObjectDetectionResult | null>(null);
 
-const [objectLoading, setObjectLoading] = useState(false);
-const [liveYoloActive, setLiveYoloActive] = useState(false);
+  const [objectLoading, setObjectLoading] = useState(false);
+  const [liveYoloActive, setLiveYoloActive] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function stopCamera() {
@@ -71,177 +76,185 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
       }
     };
   }, [capturedImage]);
+
   useEffect(() => {
-  if (!liveYoloActive || !cameraActive) return;
+    if (!liveYoloActive || !cameraActive) return;
 
-  let cancelled = false;
-  const labelHistory = new Map<number, Array<{ label: string; confidence: number }>>();
-  const stableLabels = new Map<number, { label: string; confidence: number }>();
-  const previousCenters = new Map<number, { x: number; y: number }>();
+    let cancelled = false;
+    const labelHistory = new Map<
+      number,
+      Array<{ label: string; confidence: number }>
+    >();
+    const stableLabels = new Map<
+      number,
+      { label: string; confidence: number }
+    >();
+    const previousCenters = new Map<number, { x: number; y: number }>();
 
-  const pause = (ms: number) =>
-    new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+    const pause = (ms: number) =>
+      new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
-  async function detectLoop() {
-    while (!cancelled) {
-      const video = videoRef.current;
+    async function detectLoop() {
+      while (!cancelled) {
+        const video = videoRef.current;
 
-      if (!video || !video.videoWidth || !video.videoHeight) {
-        await pause(200);
-        continue;
-      }
-
-      const sourceWidth = video.videoWidth;
-      const sourceHeight = video.videoHeight;
-      const scale = Math.min(1, 640 / sourceWidth);
-
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
-      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
-
-      const context = canvas.getContext('2d');
-
-      if (!context) {
-        if (!cancelled) {
-          setError('Could not process the live camera frame.');
-          setLiveYoloActive(false);
+        if (!video || !video.videoWidth || !video.videoHeight) {
+          await pause(200);
+          continue;
         }
-        return;
-      }
 
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const sourceWidth = video.videoWidth;
+        const sourceHeight = video.videoHeight;
+        const scale = Math.min(1, 640 / sourceWidth);
 
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, 'image/jpeg', 0.75);
-      });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+        canvas.height = Math.max(1, Math.round(sourceHeight * scale));
 
-      if (cancelled) return;
+        const context = canvas.getContext('2d');
 
-      if (blob) {
-        const file = new File(
-          [blob],
-          `live-yolo-${Date.now()}.jpg`,
-          { type: 'image/jpeg' }
-        );
-
-        try {
-          const result = await aiApi.detectObjects(file);
-
+        if (!context) {
           if (!cancelled) {
-            const rawResult = result as ObjectDetectionResult;
-
-            if (rawResult.detections.length === 0) {
-              labelHistory.clear();
-              stableLabels.clear();
-              previousCenters.clear();
-            }
-
-            const imageDiagonal = Math.hypot(
-              rawResult.image_width,
-              rawResult.image_height,
-            );
-
-            const stabilizedDetections = rawResult.detections.map(
-              (detection, index) => {
-                const { x1, y1, x2, y2 } = detection.bbox;
-                const center = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
-                const previousCenter = previousCenters.get(index);
-
-                if (
-                  previousCenter &&
-                  Math.hypot(
-                    center.x - previousCenter.x,
-                    center.y - previousCenter.y,
-                  ) > imageDiagonal * 0.2
-                ) {
-                  labelHistory.delete(index);
-                  stableLabels.delete(index);
-                }
-
-                previousCenters.set(index, center);
-
-                const history = [
-                  ...(labelHistory.get(index) ?? []),
-                  {
-                    label: detection.class_name,
-                    confidence: detection.confidence,
-                  },
-                ].slice(-3);
-
-                labelHistory.set(index, history);
-
-                const counts = new Map<string, number>();
-                for (const item of history) {
-                  counts.set(item.label, (counts.get(item.label) ?? 0) + 1);
-                }
-
-                const consensus = [...counts.entries()].find(
-                  ([, count]) => count >= 2,
-                );
-
-                let stable = stableLabels.get(index);
-
-                if (!stable) {
-                  stable = {
-                    label: detection.class_name,
-                    confidence: detection.confidence,
-                  };
-                }
-
-                if (consensus) {
-                  const consensusLabel = consensus[0];
-                  const latestMatching = [...history]
-                    .reverse()
-                    .find((item) => item.label === consensusLabel);
-
-                  stable = {
-                    label: consensusLabel,
-                    confidence: latestMatching?.confidence ?? detection.confidence,
-                  };
-                }
-
-                stableLabels.set(index, stable);
-
-                return {
-                  ...detection,
-                  class_name: stable.label,
-                  confidence: stable.confidence,
-                };
-              },
-            );
-
-            setObjectDetection({
-              ...rawResult,
-              detections: stabilizedDetections,
-            });
-          }
-        } catch (err) {
-          if (!cancelled) {
-            setError(
-              err instanceof Error
-                ? err.message
-                : 'Live YOLO detection failed.'
-            );
+            setError('Could not process the live camera frame.');
             setLiveYoloActive(false);
           }
           return;
         }
+
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob(resolve, 'image/jpeg', 0.75);
+        });
+
+        if (cancelled) return;
+
+        if (blob) {
+          const file = new File([blob], `live-yolo-${Date.now()}.jpg`, {
+            type: 'image/jpeg',
+          });
+
+          try {
+            const result = await aiApi.detectObjects(file);
+
+            if (!cancelled) {
+              const rawResult = result as ObjectDetectionResult;
+
+              if (rawResult.detections.length === 0) {
+                labelHistory.clear();
+                stableLabels.clear();
+                previousCenters.clear();
+              }
+
+              const imageDiagonal = Math.hypot(
+                rawResult.image_width,
+                rawResult.image_height,
+              );
+
+              const stabilizedDetections = rawResult.detections.map(
+                (detection, index) => {
+                  const { x1, y1, x2, y2 } = detection.bbox;
+                  const center = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+                  const previousCenter = previousCenters.get(index);
+
+                  if (
+                    previousCenter &&
+                    Math.hypot(
+                      center.x - previousCenter.x,
+                      center.y - previousCenter.y,
+                    ) >
+                      imageDiagonal * 0.2
+                  ) {
+                    labelHistory.delete(index);
+                    stableLabels.delete(index);
+                  }
+
+                  previousCenters.set(index, center);
+
+                  const history = [
+                    ...(labelHistory.get(index) ?? []),
+                    {
+                      label: detection.class_name,
+                      confidence: detection.confidence,
+                    },
+                  ].slice(-3);
+
+                  labelHistory.set(index, history);
+
+                  const counts = new Map<string, number>();
+                  for (const item of history) {
+                    counts.set(item.label, (counts.get(item.label) ?? 0) + 1);
+                  }
+
+                  const consensus = [...counts.entries()].find(
+                    ([, count]) => count >= 2,
+                  );
+
+                  let stable = stableLabels.get(index);
+
+                  if (!stable) {
+                    stable = {
+                      label: detection.class_name,
+                      confidence: detection.confidence,
+                    };
+                  }
+
+                  if (consensus) {
+                    const consensusLabel = consensus[0];
+                    const latestMatching = [...history]
+                      .reverse()
+                      .find((item) => item.label === consensusLabel);
+
+                    stable = {
+                      label: consensusLabel,
+                      confidence:
+                        latestMatching?.confidence ?? detection.confidence,
+                    };
+                  }
+
+                  stableLabels.set(index, stable);
+
+                  return {
+                    ...detection,
+                    class_name: stable.label,
+                    confidence: stable.confidence,
+                  };
+                },
+              );
+
+              setObjectDetection({
+                ...rawResult,
+                detections: stabilizedDetections,
+              });
+            }
+          } catch (err) {
+            if (!cancelled) {
+              setError(
+                err instanceof Error
+                  ? err.message
+                  : 'Live YOLO detection failed.',
+              );
+              setLiveYoloActive(false);
+            }
+            return;
+          }
+        }
+
+        await pause(150);
       }
-
-      await pause(150);
     }
-  }
 
-  void detectLoop();
+    void detectLoop();
 
-  return () => {
-    cancelled = true;
-  };
-}, [liveYoloActive, cameraActive]);
+    return () => {
+      cancelled = true;
+    };
+  }, [liveYoloActive, cameraActive]);
 
   async function startCamera() {
     setError(null);
     setPrediction(null);
+    setSavedSuccess(false);
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -317,6 +330,7 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
         setCapturedImage(URL.createObjectURL(blob));
         setPrediction(null);
         setObjectDetection(null);
+        setSavedSuccess(false);
         setError(null);
         stopCamera();
       },
@@ -326,12 +340,13 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
   }
 
   function retakePhoto() {
-  setCapturedImage(null);
-  setCapturedFile(null);
-  setPrediction(null);
-  setObjectDetection(null);
-  setError(null);
-}
+    setCapturedImage(null);
+    setCapturedFile(null);
+    setPrediction(null);
+    setObjectDetection(null);
+    setSavedSuccess(false);
+    setError(null);
+  }
 
   async function analyzeImage() {
     if (!capturedFile) {
@@ -342,6 +357,7 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
     setLoading(true);
     setError(null);
     setPrediction(null);
+    setSavedSuccess(false);
 
     try {
       const result = await aiApi.predictFreshness(capturedFile, true);
@@ -356,31 +372,74 @@ const [liveYoloActive, setLiveYoloActive] = useState(false);
       setLoading(false);
     }
   }
-async function detectObjects() {
-  if (!capturedFile) {
-    setError('Capture an image before detecting objects.');
-    return;
+
+  async function detectObjects() {
+    if (!capturedFile) {
+      setError('Capture an image before detecting objects.');
+      return;
+    }
+
+    setObjectLoading(true);
+    setError(null);
+    setObjectDetection(null);
+
+    try {
+      const result = await aiApi.detectObjects(capturedFile);
+      setObjectDetection(result as ObjectDetectionResult);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'YOLO detection failed. Check the backend logs.',
+      );
+    } finally {
+      setObjectLoading(false);
+    }
   }
 
-  setObjectLoading(true);
-  setError(null);
-  setObjectDetection(null);
+  async function saveToFridge() {
+    const top = prediction?.top_prediction;
+    if (!prediction || !top || top.is_unknown) return;
 
-  try {
-    const result = await aiApi.detectObjects(capturedFile);
-    setObjectDetection(result as ObjectDetectionResult);
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : 'YOLO detection failed. Check the backend logs.'
-    );
-  } finally {
-    setObjectLoading(false);
+    setSaving(true);
+    setError(null);
+
+    try {
+      const safeItemType =
+        top.item_type === 'fruit' ||
+        top.item_type === 'vegetable' ||
+        top.item_type === 'packaged'
+          ? top.item_type
+          : 'fruit';
+
+      await foodsApi.create({
+        name: top.item_name.replaceAll('_', ' '),
+        category: top.category || 'Fruits',
+        item_type: safeItemType,
+        zone_id: top.suggested_zone_id || 1,
+        quantity: 1,
+        unit: 'pcs',
+        expiry_date: top.suggested_expiry_date || new Date().toISOString(),
+        freshness_status:
+          top.freshness_class === 'Uncertain' ? 'Fresh' : top.freshness_class,
+        image_path: prediction.image_url,
+        source: 'fruit_scan',
+      });
+
+      setSavedSuccess(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not save this item to your fridge.',
+      );
+    } finally {
+      setSaving(false);
+    }
   }
-}
 
   const result = prediction?.top_prediction;
+  const topAlternatives = (prediction?.all_predictions ?? []).slice(0, 3);
 
   const percentage = (value?: number) =>
     typeof value === 'number' ? `${Math.round(value * 100)}%` : '—';
@@ -436,39 +495,39 @@ async function detectObjects() {
             }`}
           />
           {liveYoloActive && objectDetection && (
-  <svg
-    className="pointer-events-none absolute inset-0 h-full w-full"
-    viewBox={`0 0 ${objectDetection.image_width} ${objectDetection.image_height}`}
-    preserveAspectRatio="xMidYMid meet"
-  >
-    {objectDetection.detections.map((detection, index) => {
-      const { x1, y1, x2, y2 } = detection.bbox;
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              viewBox={`0 0 ${objectDetection.image_width} ${objectDetection.image_height}`}
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {objectDetection.detections.map((detection, index) => {
+                const { x1, y1, x2, y2 } = detection.bbox;
 
-      return (
-        <g key={`${detection.class_name}-${index}-${x1}`}>
-          <rect
-            x={x1}
-            y={y1}
-            width={x2 - x1}
-            height={y2 - y1}
-            fill="none"
-            stroke="#65a30d"
-            strokeWidth="3"
-          />
-          <text
-            x={x1}
-            y={Math.max(y1 - 8, 20)}
-            fill="#65a30d"
-            fontSize="18"
-            fontWeight="600"
-          >
-            {detection.class_name} {Math.round(detection.confidence * 100)}%
-          </text>
-        </g>
-      );
-    })}
-  </svg>
-)}
+                return (
+                  <g key={`${detection.class_name}-${index}-${x1}`}>
+                    <rect
+                      x={x1}
+                      y={y1}
+                      width={x2 - x1}
+                      height={y2 - y1}
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth="3"
+                    />
+                    <text
+                      x={x1}
+                      y={Math.max(y1 - 8, 20)}
+                      fill="#22c55e"
+                      fontSize="18"
+                      fontWeight="600"
+                    >
+                      {detection.class_name} {Math.round(detection.confidence * 100)}%
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          )}
           {capturedImage && (
             <img
               src={capturedImage}
@@ -519,20 +578,20 @@ async function detectObjects() {
                 Stop camera
               </button>
               <button
-  type="button"
-  onClick={() => {
-    if (liveYoloActive) {
-      setLiveYoloActive(false);
-    } else {
-      setObjectDetection(null);
-      setError(null);
-      setLiveYoloActive(true);
-    }
-  }}
-  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-5 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
->
-  {liveYoloActive ? 'Stop Live YOLO' : 'Start Live YOLO'}
-</button>
+                type="button"
+                onClick={() => {
+                  if (liveYoloActive) {
+                    setLiveYoloActive(false);
+                  } else {
+                    setObjectDetection(null);
+                    setError(null);
+                    setLiveYoloActive(true);
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-5 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+              >
+                {liveYoloActive ? 'Stop Live YOLO' : 'Start Live YOLO'}
+              </button>
             </>
           )}
 
@@ -552,18 +611,18 @@ async function detectObjects() {
                 {loading ? 'Analyzing image...' : 'Analyze with AI'}
               </button>
               <button
-  type="button"
-  onClick={detectObjects}
-  disabled={objectLoading || loading}
-  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-5 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
->
-  {objectLoading ? (
-    <LoaderCircle className="h-4 w-4 animate-spin" />
-  ) : (
-    <ScanSearch className="h-4 w-4" />
-  )}
-  {objectLoading ? 'Detecting objects...' : 'Detect foods with YOLO'}
-</button>
+                type="button"
+                onClick={detectObjects}
+                disabled={objectLoading || loading}
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-5 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
+              >
+                {objectLoading ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ScanSearch className="h-4 w-4" />
+                )}
+                {objectLoading ? 'Detecting objects...' : 'Detect foods with YOLO'}
+              </button>
 
               <button
                 type="button"
@@ -588,49 +647,88 @@ async function detectObjects() {
           <p>{error}</p>
         </div>
       )}
+
       {objectDetection && !liveYoloActive && (
-  <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900">
-          YOLO object detection
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          {objectDetection.message}
-        </p>
-      </div>
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                YOLO object detection
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {objectDetection.message}
+              </p>
+            </div>
 
-      <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
-        {objectDetection.detections.length} detected
-      </span>
-    </div>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
+              {objectDetection.detections.length} detected
+            </span>
+          </div>
 
-    <img
-      src={objectDetection.annotated_image}
-      alt="YOLO object detection results"
-      className="w-full rounded-xl bg-slate-950 object-contain"
-    />
+          <img
+            src={objectDetection.annotated_image}
+            alt="YOLO object detection results"
+            className="w-full rounded-xl bg-slate-950 object-contain"
+          />
 
-    {objectDetection.detections.map((detection, index) => (
-      <div
-        key={`${detection.class_name}-${index}-${detection.bbox.x1}`}
-        className="rounded-xl border border-slate-200 p-3"
-      >
-        <p className="font-semibold capitalize text-slate-900">
-          {detection.class_name}
-        </p>
-        <p className="text-sm text-slate-600">
-          Detection confidence: {Math.round(detection.confidence * 100)}%
-        </p>
-      </div>
-    ))}
-  </section>
-)}
+          {objectDetection.detections.map((detection, index) => (
+            <div
+              key={`${detection.class_name}-${index}-${detection.bbox.x1}`}
+              className="rounded-xl border border-slate-200 p-3"
+            >
+              <p className="font-semibold capitalize text-slate-900">
+                {detection.class_name}
+              </p>
+              <p className="text-sm text-slate-600">
+                Detection confidence: {Math.round(detection.confidence * 100)}%
+              </p>
+            </div>
+          ))}
+        </section>
+      )}
+
       {prediction && result && (
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            <h2 className="text-lg font-bold text-slate-900">Prediction result</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <h2 className="text-lg font-bold text-slate-900">
+                Prediction result
+              </h2>
+            </div>
+
+            {!result.is_unknown && result.freshness_class !== 'Rotten' && (
+              <div className="flex items-center gap-2">
+                {savedSuccess ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 px-4 py-2 text-xs font-semibold text-emerald-800">
+                      <Check className="h-4 w-4" />
+                      Saved to Fridge
+                    </span>
+                    <Link
+                      to="/foods"
+                      className="inline-flex items-center rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      View inventory →
+                    </Link>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={saveToFridge}
+                    disabled={saving}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {saving ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    {saving ? 'Saving...' : 'Save to Fridge'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {prediction.is_demo_mode && (
@@ -651,53 +749,4 @@ async function detectObjects() {
               </p>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-sm text-slate-600">Freshness status</p>
-              <p className="mt-1 text-xl font-bold text-slate-900">
-                {result.freshness_class}
-              </p>
-              {typeof result.freshness_confidence === 'number' && (
-                <p className="mt-2 text-sm text-slate-600">
-                  Freshness confidence: {percentage(result.freshness_confidence)}
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-slate-100 p-4">
-              <p className="text-sm text-slate-500">Suggested storage zone</p>
-              <p className="mt-1 font-semibold text-slate-900">
-                {result.suggested_zone_name || 'Not available'}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-slate-100 p-4">
-              <p className="text-sm text-slate-500">Typical shelf life</p>
-              <p className="mt-1 font-semibold text-slate-900">
-                {result.typical_shelf_life_days} day(s)
-              </p>
-            </div>
-          </div>
-
-          {result.condition_notes && (
-            <div className="rounded-xl border border-slate-200 p-4">
-              <h3 className="font-semibold text-slate-900">Condition notes</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
-                {result.condition_notes}
-              </p>
-            </div>
-          )}
-
-          {result.needs_manual_check && (
-            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-              Manual verification is recommended for this image.
-            </p>
-          )}
-
-          <p className="text-xs leading-5 text-slate-500">
-            {prediction.disclaimer}
-          </p>
-        </section>
-      )}
-    </main>
-  );
-}
+            <div className="rounded-xl bg-slate-5

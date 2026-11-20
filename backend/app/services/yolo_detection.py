@@ -11,28 +11,6 @@ from app.services.ml_inference import ml_service
 
 logger = logging.getLogger(__name__)
 
-# These are food-related classes available in the pretrained COCO model.
-# This does not include every fruit or vegetable.
-FOOD_RELATED_CLASSES = {
-    "apple",
-    "banana",
-    "orange",
-    "broccoli",
-    "carrot",
-    "sandwich",
-    "hot dog",
-    "pizza",
-    "donut",
-    "cake",
-    "bottle",
-    "wine glass",
-    "cup",
-    "bowl",
-    "tomato",
-    "cucumber",
-}
-# Only accept the existing food classifier's label when it is
-# confident enough. This threshold needs real-image validation.
 FOOD_CLASSIFICATION_THRESHOLD = 0.35
 
 
@@ -55,7 +33,7 @@ class YoloDetectionService:
         db: Session,
         yolo_label: str,
     ):
-        """Use the existing food classifier to refine a YOLO label."""
+        """Use the standard produce classifier to refine a YOLO crop."""
         crop_path = None
 
         try:
@@ -66,11 +44,8 @@ class YoloDetectionService:
                 crop_path = temp_file.name
 
             if not cv2.imwrite(crop_path, crop):
-                return yolo_label, None, "yolo"
+                return yolo_label, None, "custom_yolo"
 
-            # Use the original food classifier, not the 10-class
-            # webcam candidate. The original model includes tomato
-            # and onion among its trained classes.
             result = ml_service.predict(
                 crop_path,
                 db,
@@ -83,8 +58,11 @@ class YoloDetectionService:
             ).strip().lower()
             confidence = float(top.get("confidence", 0.0) or 0.0)
 
+            # Ignore unknown or packaged dairy labels when refining produce YOLO boxes
             if (
                 predicted_label != "unknown"
+                and not predicted_label.startswith("packaged")
+                and not top.get("is_dairy", False)
                 and confidence >= FOOD_CLASSIFICATION_THRESHOLD
             ):
                 return (
@@ -99,7 +77,7 @@ class YoloDetectionService:
             logger.exception(
                 "Food-label refinement failed; keeping YOLO label."
             )
-            return yolo_label, None, "yolo"
+            return yolo_label, None, "custom_yolo"
 
         finally:
             if crop_path and os.path.exists(crop_path):
@@ -113,12 +91,13 @@ class YoloDetectionService:
 
     def predict(self, image_path: str, db: Session) -> dict:
         results = self._get_model().predict(
-         source=image_path,
-         conf=0.30,
-         iou=0.5,
-         imgsz=416,
-         verbose=False,
-)
+            source=image_path,
+            conf=0.46,
+            iou=0.45,
+            imgsz=416,
+            agnostic_nms=True,
+            verbose=False,
+        )
 
         if not results:
             raise RuntimeError("YOLO returned no inference results.")
@@ -139,7 +118,6 @@ class YoloDetectionService:
                     for value in box.xyxy[0].tolist()
                 ]
 
-                # Keep coordinates within the image boundaries.
                 x1 = max(0, min(x1, width - 1))
                 x2 = max(0, min(x2, width))
                 y1 = max(0, min(y1, height - 1))
@@ -150,25 +128,16 @@ class YoloDetectionService:
                 if crop.size == 0:
                     continue
 
-                # Trust the custom YOLO model's trained class prediction.
-                final_label, class_confidence, label_source = self._refine_food_label(crop, db, yolo_label)
-               
+                final_label, class_confidence, label_source = self._refine_food_label(
+                    crop, db, yolo_label
+                )
 
                 label = f"{final_label} {detection_confidence:.0%}"
-
                 if class_confidence is not None:
                     label += f" | class {class_confidence:.0%}"
 
                 color = (0, 190, 90)
-
-                cv2.rectangle(
-                    image,
-                    (x1, y1),
-                    (x2, y2),
-                    color,
-                    2,
-                )
-
+                cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
                 cv2.putText(
                     image,
                     label,
@@ -221,10 +190,7 @@ class YoloDetectionService:
             "message": (
                 f"Detected {len(detections)} supported object(s)."
                 if detections
-                else (
-                    "No supported food objects detected. "
-                    "The pretrained YOLO model cannot detect every food."
-                )
+                else "No supported food objects detected."
             ),
         }
 
