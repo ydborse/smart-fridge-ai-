@@ -20,6 +20,7 @@ router = APIRouter(prefix="/predict", tags=["AI Recognition"])
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
+
 @router.post("/objects")
 async def detect_food_objects(
     file: UploadFile = File(...),
@@ -57,6 +58,7 @@ async def detect_food_objects(
         if os.path.exists(file_path):
             os.remove(file_path)
 
+
 @router.post("", response_model=PredictionResponse)
 async def predict_freshness(
     file: UploadFile = File(...),
@@ -79,11 +81,37 @@ async def predict_freshness(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    crop_path = None
     try:
+        inference_path = file_path
+        effective_webcam_model = use_webcam_model
+
+        if use_webcam_model:
+            try:
+                import cv2
+                yres = yolo_detection_service._get_model().predict(
+                    source=file_path, conf=0.30, iou=0.5, imgsz=416, verbose=False
+                )
+                if yres and yres[0].boxes is not None and len(yres[0].boxes) > 0:
+                    box = max(yres[0].boxes, key=lambda b: float(b.conf[0].item()))
+                    img = yres[0].orig_img
+                    h, w = img.shape[:2]
+                    x1, y1, x2, y2 = [int(round(v)) for v in box.xyxy[0].tolist()]
+                    crop = img[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+                    if crop.size > 0:
+                        crop_path = f"{file_path}_crop.jpg"
+                        if cv2.imwrite(crop_path, crop):
+                            inference_path = crop_path
+            except Exception as crop_err:
+                logger.warning(f"YOLO auto-crop skipped: {crop_err}")
+            effective_webcam_model = False
+
         # Run ML inference
         pred_res = ml_service.predict(
-            file_path, db, use_webcam_model=use_webcam_model
+            inference_path, db, use_webcam_model=effective_webcam_model
         )
+        if crop_path and os.path.exists(crop_path):
+            os.remove(crop_path)
 
         top_pred = pred_res["top_prediction"]
         pred_freshness = top_pred.get("freshness_class", "Uncertain")
@@ -128,10 +156,12 @@ async def predict_freshness(
 
         return pred_res
     except Exception as e:
-        # If error occurs, remove the uploaded file
+        if crop_path and os.path.exists(crop_path):
+            os.remove(crop_path)
         if os.path.exists(file_path):
             os.remove(file_path)
         raise HTTPException(status_code=500, detail=f"Image prediction failed: {str(e)}")
+
 
 @router.post("/dairy", response_model=DairyPredictionResponse)
 async def predict_dairy_packaging(

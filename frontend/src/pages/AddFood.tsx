@@ -821,8 +821,8 @@ const captureOcrLabel = () => {
                     <label className="text-xs font-bold text-slate-700 block mb-1">Quantity</label>
                     <input
                       type="number"
-                      min="0.1"
-                      step="0.5"
+                      min="1"
+                      step="1"
                       value={quantity}
                       onChange={(e) => setQuantity(parseFloat(e.target.value) || 1)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
@@ -1143,8 +1143,8 @@ const captureOcrLabel = () => {
                 <label className="text-xs font-bold text-slate-700 block mb-1">Quantity</label>
                 <input
                   type="number"
-                  min="0.1"
-                  step="0.5"
+                  min="1"
+                  step="1"
                   value={manualQuantity}
                   onChange={(e) => setManualQuantity(parseFloat(e.target.value) || 1)}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm"

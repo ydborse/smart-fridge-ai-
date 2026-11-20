@@ -69,8 +69,25 @@
   pointer-events: none;
 }
 
+.sf-auth-front {
+  pointer-events: auto;
+  z-index: 2;
+}
+
 .sf-auth-back {
   transform: rotateY(180deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sf-auth-card--flipped .sf-auth-front {
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sf-auth-card--flipped .sf-auth-back {
+  pointer-events: auto;
+  z-index: 2;
 }
 
 .sf-auth-form {

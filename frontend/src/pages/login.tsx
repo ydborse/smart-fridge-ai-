@@ -19,8 +19,8 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
 
   const [isSignup, setIsSignup] = useState(false);
-  const [email, setEmail] = useState('demo@smartfridge.com');
-  const [password, setPassword] = useState('SmartFridge123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState(''); 
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
@@ -135,7 +135,6 @@ export const Login: React.FC = () => {
                 {submitting && !isSignup ? 'Signing in…' : 'Sign in'}
               </button>
 
-              <p className="sf-auth-demo-note">Demo credentials are prefilled for local testing.</p>
               <p className="sf-auth-switch">
                 New to Smart Fridge AI?{' '}
                 <button type="button" onClick={() => switchMode(true)} tabIndex={isSignup ? -1 : 0}>Create account</button>

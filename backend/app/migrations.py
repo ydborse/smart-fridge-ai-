@@ -75,8 +75,8 @@ def run_migrations():
 
             # Backfill any null status/reminder values in alerts
             try:
-                conn.execute(text("UPDATE alerts SET status = 'RESOLVED' WHERE is_resolved = 1 AND (status IS NULL OR status = 'ACTIVE')"))
-                conn.execute(text("UPDATE alerts SET status = 'ACTIVE' WHERE (is_resolved = 0 OR is_resolved IS NULL) AND status IS NULL"))
+                conn.execute(text("UPDATE alerts SET status = 'RESOLVED' WHERE is_resolved = TRUE AND (status IS NULL OR status = 'ACTIVE')"))
+                conn.execute(text("UPDATE alerts SET status = 'ACTIVE' WHERE (is_resolved = FALSE OR is_resolved IS NULL) AND status IS NULL"))
                 conn.execute(text("UPDATE alerts SET next_reminder_at = next_sms_scheduled_at WHERE next_reminder_at IS NULL AND next_sms_scheduled_at IS NOT NULL"))
                 conn.execute(text("UPDATE alerts SET last_notification_at = last_sms_sent_at WHERE last_notification_at IS NULL AND last_sms_sent_at IS NOT NULL"))
                 conn.execute(text("UPDATE alerts SET reminder_count = sms_repeat_count WHERE (reminder_count IS NULL OR reminder_count = 0) AND sms_repeat_count > 0"))
@@ -104,3 +104,4 @@ def run_migrations():
                         logger.warning(f"Could not add {col_name} to notifications_log: {e}")
 
     logger.info("Database schema migration verification completed.")
+

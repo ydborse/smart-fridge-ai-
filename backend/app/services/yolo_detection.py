@@ -33,7 +33,7 @@ FOOD_RELATED_CLASSES = {
 }
 # Only accept the existing food classifier's label when it is
 # confident enough. This threshold needs real-image validation.
-FOOD_CLASSIFICATION_THRESHOLD = 0.45
+FOOD_CLASSIFICATION_THRESHOLD = 0.35
 
 
 class YoloDetectionService:
@@ -93,7 +93,7 @@ class YoloDetectionService:
                     "food_classifier",
                 )
 
-            return "uncertain food", None, "uncertain"
+            return yolo_label, None, "custom_yolo"
 
         except Exception:
             logger.exception(
@@ -114,9 +114,9 @@ class YoloDetectionService:
     def predict(self, image_path: str, db: Session) -> dict:
         results = self._get_model().predict(
          source=image_path,
-         conf=0.45,
+         conf=0.30,
          iou=0.5,
-         imgsz=640,
+         imgsz=416,
          verbose=False,
 )
 
@@ -151,9 +151,8 @@ class YoloDetectionService:
                     continue
 
                 # Trust the custom YOLO model's trained class prediction.
-                final_label = yolo_label
-                class_confidence = None
-                label_source = "custom_yolo"
+                final_label, class_confidence, label_source = self._refine_food_label(crop, db, yolo_label)
+               
 
                 label = f"{final_label} {detection_confidence:.0%}"
 
