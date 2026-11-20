@@ -1,25 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './pages/Dashboard';
-import { Zones } from './pages/Zones';
-import { FoodManagement } from './pages/FoodManagement';
-import { AddFood } from './pages/AddFood';
-import { WeeklyAudit } from './pages/WeeklyAudit';
-import { Alerts } from './pages/Alerts';
-import { History } from './pages/History';
-import { DatasetReview } from './pages/DatasetReview';
-import { Settings } from './pages/Settings';
-import { DairyRecognition } from './pages/DairyRecognition';
-import { Recipes } from './pages/Recipes';
-import { ShoppingList } from './pages/ShoppingList';
+import { Login } from './pages/login';
 import { alertsApi, setConnectionErrorListener, checkBackendHealth } from './services/api';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { Login } from './pages/login';
-import WebcamRecognition from './pages/WebcamRecognition';
+
+// Lazy-load secondary routes to split the production JS bundle
+const Zones = lazy(() => import('./pages/Zones').then((m) => ({ default: m.Zones })));
+const FoodManagement = lazy(() => import('./pages/FoodManagement').then((m) => ({ default: m.FoodManagement })));
+const AddFood = lazy(() => import('./pages/AddFood').then((m) => ({ default: m.AddFood })));
+const WeeklyAudit = lazy(() => import('./pages/WeeklyAudit').then((m) => ({ default: m.WeeklyAudit })));
+const Alerts = lazy(() => import('./pages/Alerts').then((m) => ({ default: m.Alerts })));
+const History = lazy(() => import('./pages/History').then((m) => ({ default: m.History })));
+const DatasetReview = lazy(() => import('./pages/DatasetReview').then((m) => ({ default: m.DatasetReview })));
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
+const DairyRecognition = lazy(() => import('./pages/DairyRecognition').then((m) => ({ default: m.DairyRecognition })));
+const Recipes = lazy(() => import('./pages/Recipes').then((m) => ({ default: m.Recipes })));
+const ShoppingList = lazy(() => import('./pages/ShoppingList').then((m) => ({ default: m.ShoppingList })));
+const WebcamRecognition = lazy(() => import('./pages/WebcamRecognition'));
 
 const AppContent: React.FC = () => {
   const [unreadAlerts, setUnreadAlerts] = useState<number>(0);
@@ -133,22 +135,24 @@ const AppContent: React.FC = () => {
         />
 
         <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/zones" element={<Zones />} />
-            <Route path="/foods" element={<FoodManagement />} />
-            <Route path="/add-food" element={<AddFood />} />
-            <Route path="/recipes" element={<Recipes />} />
-            <Route path="/shopping-list" element={<ShoppingList />} />
-            <Route path="/dairy-ai" element={<DairyRecognition />} />
-            <Route path="/audit" element={<WeeklyAudit />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/dataset" element={<DatasetReview />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/webcam" element={<WebcamRecognition />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<div className="p-8 text-sm text-slate-500">Loading page...</div>}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/zones" element={<Zones />} />
+              <Route path="/foods" element={<FoodManagement />} />
+              <Route path="/add-food" element={<AddFood />} />
+              <Route path="/recipes" element={<Recipes />} />
+              <Route path="/shopping-list" element={<ShoppingList />} />
+              <Route path="/dairy-ai" element={<DairyRecognition />} />
+              <Route path="/audit" element={<WeeklyAudit />} />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/history" element={<History />} />
+              <Route path="/dataset" element={<DatasetReview />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/webcam" element={<WebcamRecognition />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
     </div>
