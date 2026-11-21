@@ -7,7 +7,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.config import settings
 from app.database import SessionLocal
 from app.services.sensor_simulator import update_sensor_readings
-from app.services.alert_engine import run_all_alert_rules
+from app.services.alert_engine import run_all_alert_rules, should_skip_quiet_hours
 from app.services import notification
 from app.models import User, FoodItem, Alert
 
@@ -39,195 +39,126 @@ async def job_check_alerts():
 
 async def job_process_repeating_alerts():
     """
-    Periodic job (running every 60s) that processes repeating SMS notifications
-    for active, unresolved alerts. Enforces:
-    - Configurable repeat interval (default 15 minutes)
-    - 2-hour maximum cutoff (120 minutes) strictly from first_sms_sent_at
-    - Immediate cancellation upon alert resolution (is_resolved=True) or acknowledgement (is_read=True)
-    - Concurrency protection and anti-spam cooldown
-    - Persistence across server restarts
+    Periodic job (running every 60s) that groups all due unresolved alerts
+    for each user into ONE neat, readable summary notification (Email + Telegram)
+    instead of spamming individual messages per food item.
     """
     if _sms_repeat_lock.locked():
-        logger.debug("Repeating SMS processor is currently running, skipping overlapping tick.")
         return
 
     async with _sms_repeat_lock:
         db = SessionLocal()
         try:
             now = datetime.utcnow()
-            # 1. Fetch active, unresolved spoilage alerts due for recurring reminder
-            due_spoilage_alerts = db.query(Alert).filter(
+
+            due_alerts = db.query(Alert).filter(
                 Alert.is_resolved == False,
                 Alert.status == "ACTIVE",
                 Alert.next_reminder_at != None,
-                Alert.next_reminder_at <= now
+                Alert.next_reminder_at <= now,
             ).all()
 
-            for alert in due_spoilage_alerts:
-                try:
-                    user = alert.user
-                    if not user:
-                        continue
+            # Group due alerts by user_id
+            alerts_by_user = {}
+            for alert in due_alerts:
+                if alert.user:
+                    alerts_by_user.setdefault(alert.user_id, []).append(alert)
 
-                    # Check if spoilage reminders are enabled for this user
-                    reminders_enabled = getattr(user, "spoilage_reminder_enabled", True)
-                    if not reminders_enabled:
-                        alert.next_reminder_at = None
-                        db.commit()
-                        continue
+            for user_id, user_alerts in alerts_by_user.items():
+                user = user_alerts[0].user
+                if not user or not getattr(user, "spoilage_reminder_enabled", True):
+                    for a in user_alerts:
+                        a.next_reminder_at = None
+                        a.next_sms_scheduled_at = None
+                    db.commit()
+                    continue
 
-                    # Prioritize user's configured interval (default 120m / 2 hours)
-                    repeat_interval = getattr(user, "spoilage_reminder_interval_minutes", None) or getattr(settings, "SMS_REMINDER_INTERVAL_MINUTES", 120) or 120
+                # Respect user's quiet hours (e.g. 22:00 - 07:00)
+                if should_skip_quiet_hours(user):
+                    continue
 
-                    # Anti-spam cooldown within repeat_interval
-                    min_gap = min(30, int(repeat_interval * 30))
-                    if alert.last_notification_at:
-                        seconds_since_last = (now - alert.last_notification_at).total_seconds()
-                        if seconds_since_last < (repeat_interval * 60 - min_gap):
-                            logger.debug(f"Spoilage Alert #{alert.id} within cooldown ({seconds_since_last:.0f}s). Skipping.")
-                            continue
+                repeat_interval = (
+                    getattr(user, "spoilage_reminder_interval_minutes", None)
+                    or getattr(settings, "SMS_REMINDER_INTERVAL_MINUTES", 120)
+                    or 120
+                )
 
-                    new_count = (alert.reminder_count or 1) + 1
+                summary_lines = []
+                grouped_food_items = []
+                seen_names = set()
+
+                for alert in user_alerts:
                     food = alert.food_item
                     zone = alert.zone or (food.zone if food else None)
                     zone_name = zone.name if zone else "Fridge"
-                    food_name = food.name if food else "Food item"
-                    reason = alert.evidence_details or ("freshness assessment indicates spoilage" if alert.evidence_type != "expiration_date" else "recorded expiration date has passed")
-
-                    remind_title = f"🚨 Food Spoilage Reminder! {food_name} in {zone_name}"
-                    remind_message = f"🚨 SMART FRIDGE REMINDER (#{new_count}): Your {food_name} in {zone_name} is still marked as spoiled. Reason: {reason}. Please inspect and remove it from your fridge. This is reminder #{new_count}."
-
-                    metadata = {
-                        "alert_id": alert.id,
-                        "food_item_id": food.id if food else None,
-                        "food_name": food_name,
-                        "category": food.category if food else None,
-                        "zone_name": zone_name,
-                        "status": food.freshness_status if food else "Rotten",
-                        "evidence_type": alert.evidence_type,
-                        "evidence_details": alert.evidence_details,
-                        "reason": reason,
-                        "action_recommended": "Remove or inspect this food item",
-                        "action_url": f"/alerts?id={alert.id}",
-                        "reminder_count": new_count
-                    }
-
-                    # Dispatch mobile reminder (Web Push, Email, SMS according to user settings)
-                    await notification.send(
-                        user=user,
-                        title=remind_title,
-                        message=remind_message,
-                        channel="all",
-                        metadata=metadata,
-                        db=db,
-                        alert_id=alert.id,
-                        repeat_count=new_count
+                    food_name = food.name if food else alert.title
+                    status = food.freshness_status if food else alert.severity.capitalize()
+                    expiry = (
+                        food.expiry_date.strftime("%b %d")
+                        if food and food.expiry_date
+                        else "Check item"
                     )
 
-                    alert.reminder_count = new_count
+                    if food_name not in seen_names:
+                        seen_names.add(food_name)
+                        summary_lines.append(
+                            f"• {food_name} ({zone_name}) — {status} | {expiry}"
+                        )
+                        grouped_food_items.append({
+                            "name": food_name,
+                            "category": food.category if food else "Alert",
+                            "status": status,
+                            "zone_name": zone_name,
+                            "expiry_date": expiry,
+                            "reason": alert.evidence_details or alert.message,
+                            "alert_type": alert.alert_type,
+                        })
+
+                    # Advance every bundled alert's next reminder together
+                    alert.reminder_count = (alert.reminder_count or 1) + 1
                     alert.last_notification_at = now
                     alert.next_reminder_at = now + timedelta(minutes=repeat_interval)
-
-                    # Keep SMS fields synchronized
-                    alert.sms_repeat_count = new_count
+                    alert.sms_repeat_count = alert.reminder_count
                     alert.last_sms_sent_at = now
-                    alert.next_sms_scheduled_at = now + timedelta(minutes=repeat_interval)
+                    alert.next_sms_scheduled_at = None
 
-                    db.commit()
-                    logger.info(
-                        f"2-Hour Spoilage Reminder #{new_count} sent for Alert #{alert.id} ({food_name}). "
-                        f"Next reminder scheduled: {alert.next_reminder_at}"
+                if summary_lines:
+                    count = len(summary_lines)
+                    title = f"Smart Fridge Summary: {count} item(s) need attention"
+                    message = (
+                        f"Smart Fridge Summary ({count} items):\n\n"
+                        + "\n".join(summary_lines)
+                        + "\n\nOpen Smart Fridge AI to mark items used or remove spoiled food."
                     )
-                except Exception as alert_err:
-                    logger.error(f"Error dispatching reminder for alert #{alert.id}: {alert_err}")
-                    # Advance next_reminder_at to avoid tight retry spam loops on failure
-                    try:
-                        db.rollback()
-                        alert.next_reminder_at = now + timedelta(minutes=15)
-                        db.commit()
-                    except Exception:
-                        db.rollback()
 
-            # 2. Fetch any other active unresolved alerts with legacy next_sms_scheduled_at due (e.g. Temperature warnings, legacy expiry)
-            due_sms_alerts = db.query(Alert).filter(
-                Alert.is_resolved == False,
-                Alert.is_read == False,
+                    await notification.send(
+                        user=user,
+                        title=title,
+                        message=message,
+                        channel="all",
+                        metadata={
+                            "alert_type": "Grouped Fridge Summary",
+                            "food_items": grouped_food_items,
+                            "action_url": "/alerts",
+                        },
+                        db=db,
+                    )
+                    logger.info(
+                        "Sent 1 grouped reminder summary (%s items) to user %s",
+                        count,
+                        user.email,
+                    )
+
+                db.commit()
+
+            # Clear legacy per-item SMS schedules so they never fire individually
+            legacy_alerts = db.query(Alert).filter(
                 Alert.next_sms_scheduled_at != None,
                 Alert.next_sms_scheduled_at <= now,
-                Alert.alert_type != "Food Spoilage Alert"
             ).all()
-
-            for alert in due_sms_alerts:
-                user = alert.user
-                is_notif_enabled = getattr(user, "telegram_notifications_enabled", None)
-                if is_notif_enabled is None:
-                    is_notif_enabled = getattr(user, "sms_notifications_enabled", True)
-                has_dest = bool(notification.resolve_telegram_chat_id(user=user))
-                if not user or not is_notif_enabled or not has_dest:
-                    alert.next_sms_scheduled_at = None
-                    db.commit()
-                    continue
-
-                repeat_interval = getattr(user, "sms_repeat_interval_minutes", 15) or 15
-                max_duration = getattr(user, "sms_max_duration_minutes", 120) or 120
-
-                base_time = alert.first_sms_sent_at or alert.created_at
-                elapsed_minutes = (now - base_time).total_seconds() / 60.0
-
-                if elapsed_minutes >= max_duration:
-                    logger.info(
-                        f"Alert #{alert.id} reached maximum repeat duration of {max_duration}m. Stopping repeats."
-                    )
-                    alert.next_sms_scheduled_at = None
-                    db.commit()
-                    continue
-
-                if alert.last_sms_sent_at:
-                    seconds_since_last = (now - alert.last_sms_sent_at).total_seconds()
-                    if seconds_since_last < (repeat_interval * 60 - 30):
-                        continue
-
-                new_repeat_count = (alert.sms_repeat_count or 1) + 1
-                food = alert.food_item
-                zone = alert.zone
-                metadata = {
-                    "alert_type": alert.alert_type,
-                    "severity": alert.severity
-                }
-                if food:
-                    metadata.update({
-                        "food_name": food.name,
-                        "category": food.category,
-                        "status": food.freshness_status
-                    })
-                elif zone:
-                    metadata.update({
-                        "zone_name": zone.name,
-                        "temperature": zone.current_temp,
-                        "humidity": zone.current_humidity
-                    })
-
-                await notification.send(
-                    user=user,
-                    title=alert.title,
-                    message=alert.message,
-                    channel="telegram",
-                    metadata=metadata,
-                    db=db,
-                    alert_id=alert.id,
-                    repeat_count=new_repeat_count
-                )
-
-                alert.sms_repeat_count = new_repeat_count
-                alert.last_sms_sent_at = now
-
-                next_time = now + timedelta(minutes=repeat_interval)
-                total_duration_if_next = (next_time - base_time).total_seconds() / 60.0
-                if total_duration_if_next <= max_duration:
-                    alert.next_sms_scheduled_at = next_time
-                else:
-                    alert.next_sms_scheduled_at = None
-
+            if legacy_alerts:
+                for a in legacy_alerts:
+                    a.next_sms_scheduled_at = None
                 db.commit()
 
         except Exception as e:
@@ -269,6 +200,8 @@ async def job_daily_digest_8am():
         logger.error(f"Error in daily digest job: {e}")
     finally:
         db.close()
+
+
 async def job_daily_spoilage_digest():
     """Send one grouped daily summary of unresolved spoiled/expired foods."""
     db = SessionLocal()
@@ -276,6 +209,9 @@ async def job_daily_spoilage_digest():
         users = db.query(User).filter(User.is_active == True).all()
 
         for user in users:
+            if not (user.email_notifications_enabled or getattr(user, "sms_notifications_enabled", False)):
+                continue
+
             alerts = (
                 db.query(Alert)
                 .filter(
@@ -295,10 +231,7 @@ async def job_daily_spoilage_digest():
             seen_food_ids = set()
 
             for alert in alerts:
-                if not alert.food_item_id:
-                    continue
-
-                if alert.food_item_id in seen_food_ids:
+                if not alert.food_item_id or alert.food_item_id in seen_food_ids:
                     continue
 
                 food = db.query(FoodItem).filter(
@@ -331,8 +264,7 @@ async def job_daily_spoilage_digest():
                 })
 
                 message_lines.append(
-                    f"- {food.name}: {status}; Location: {zone_name}; "
-                    f"Expiry: {expiry}; Reason: {reason}"
+                    f"• {food.name} ({zone_name}) — {status} | Expiry: {expiry}"
                 )
 
             if grouped_food_items:
@@ -344,7 +276,7 @@ async def job_daily_spoilage_digest():
                     ),
                     message=(
                         "Here are the unresolved spoiled or expired foods "
-                        "that still need attention today:\n"
+                        "that still need attention today:\n\n"
                         + "\n".join(message_lines)
                     ),
                     channel="all",
@@ -366,14 +298,17 @@ async def job_daily_spoilage_digest():
     finally:
         db.close()
 
+
 async def job_weekly_audit_reminder():
     db = SessionLocal()
     try:
         users = db.query(User).filter(User.is_active == True).all()
         for user in users:
+            if not (user.email_notifications_enabled or getattr(user, "sms_notifications_enabled", False)):
+                continue
             await notification.send(
                 user=user,
-                title="Weekly Fridge Audit Reminder 📸",
+                title="Weekly Fridge Audit Reminder",
                 message="It's Sunday! Take 2-5 photos of your fridge shelves to verify inventory and freshness.",
                 channel="all",
                 db=db
@@ -405,7 +340,7 @@ def start_scheduler():
         coalesce=True,
     )
 
-    # 3. Process repeating reminders every minute
+    # 3. Process grouped repeating reminders every minute
     scheduler.add_job(
         job_process_repeating_alerts,
         IntervalTrigger(minutes=1),
@@ -415,14 +350,10 @@ def start_scheduler():
         coalesce=True,
     )
 
-    # 4. Existing daily email digest — 8 AM India time
+    # 4. Daily email digest — 8 AM India time
     scheduler.add_job(
         job_daily_digest_8am,
-        CronTrigger(
-            hour=8,
-            minute=0,
-            timezone="Asia/Kolkata",
-        ),
+        CronTrigger(hour=8, minute=0, timezone="Asia/Kolkata"),
         id="daily_8am_digest",
         replace_existing=True,
         misfire_grace_time=300,
@@ -432,11 +363,7 @@ def start_scheduler():
     # 5. Grouped spoilage summary — 8 AM India time
     scheduler.add_job(
         job_daily_spoilage_digest,
-        CronTrigger(
-            hour=8,
-            minute=0,
-            timezone="Asia/Kolkata",
-        ),
+        CronTrigger(hour=8, minute=0, timezone="Asia/Kolkata"),
         id="daily_spoilage_digest",
         replace_existing=True,
         misfire_grace_time=300,
@@ -446,25 +373,19 @@ def start_scheduler():
     # 6. Weekly audit — Sunday at 10 AM India time
     scheduler.add_job(
         job_weekly_audit_reminder,
-        CronTrigger(
-            day_of_week="sun",
-            hour=10,
-            minute=0,
-            timezone="Asia/Kolkata",
-        ),
+        CronTrigger(day_of_week="sun", hour=10, minute=0, timezone="Asia/Kolkata"),
         id="weekly_audit",
         replace_existing=True,
         misfire_grace_time=300,
         coalesce=True,
     )
 
-    # Start the scheduler
     if not scheduler.running:
-     scheduler.start()
-     logger.info("APScheduler background jobs started successfully.")
+        scheduler.start()
+        logger.info("APScheduler background jobs started successfully.")
+
+
 def shutdown_scheduler():
     if scheduler.running:
         scheduler.shutdown()
         logger.info("APScheduler stopped.")
-
-

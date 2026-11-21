@@ -37,14 +37,46 @@
   color: var(--kitchen-ink);
 }
 
-.kitchen-heading {
-  color: #172b20;
+.kitchen-heading,
+main:not(.sf-auth-page) h1,
+main:not(.sf-auth-page) h2 {
   font-family: Georgia, Cambria, "Times New Roman", serif;
   font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1.12;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
+.kitchen-heading,
+main:not(.sf-auth-page) h1 {
+  color: #172b20;
+}
+/* Unify Light Mode warmth, heading scale, and forest-green buttons across all pages */
+html:not(.dark) body,
+html:not(.dark) #root,
+html:not(.dark) .min-h-screen.bg-slate-50 {
+  background-color: var(--kitchen-canvas) !important;
+  color: var(--kitchen-ink);
+}
+
+html:not(.dark) main:not(.sf-auth-page) h1 {
+  font-size: clamp(1.85rem, 2.6vw, 2.35rem);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  color: #172b20;
+}
+
+html:not(.dark) main:not(.sf-auth-page) [class~="bg-white"] {
+  background-color: var(--kitchen-paper) !important;
+  border-color: var(--kitchen-border) !important;
+}
+
+html:not(.dark) main:not(.sf-auth-page) [class~="bg-emerald-600"] {
+  background-color: var(--kitchen-green) !important;
+}
+
+html:not(.dark) main:not(.sf-auth-page) [class~="bg-emerald-600"]:hover {
+  background-color: var(--kitchen-green-dark) !important;
+}
 .kitchen-panel {
   background: var(--kitchen-paper);
   border: 1px solid var(--kitchen-border);

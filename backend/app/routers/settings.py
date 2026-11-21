@@ -1,11 +1,12 @@
 import json
 import logging
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.config import settings
-from app.models import User, Zone, NotificationLog
+from app.models import User, Zone, NotificationLog, FoodItem
 from app.schemas import UserOut, UserUpdate, NotificationLogOut
 from app.services import notification
 from app.security import get_current_user, get_required_user
@@ -13,6 +14,74 @@ from app.security import get_current_user, get_required_user
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["Settings & Notifications"])
+
+
+def _build_realtime_food_summary(db: Session, user: User):
+    now = datetime.utcnow()
+    lead_days = getattr(user, "alert_lead_days", 2) or 2
+    cutoff = now + timedelta(days=lead_days)
+
+    items = (
+        db.query(FoodItem)
+        .filter(
+            FoodItem.user_id == user.id,
+            FoodItem.is_used == False,
+            FoodItem.is_discarded == False,
+        )
+        .order_by(FoodItem.expiry_date.asc())
+        .all()
+    )
+
+    urgent = [
+        f for f in items
+        if (f.freshness_status in ("Rotten", "Expired", "Expiring Soon", "Overripe"))
+        or (f.expiry_date and f.expiry_date <= cutoff)
+    ][:8]
+
+    selected = urgent if urgent else items[:5]
+    grouped_food_items = []
+    lines = []
+
+    for food in selected:
+        zone_name = food.zone.name if food.zone else "Fridge"
+        expiry = food.expiry_date.strftime("%b %d, %Y") if food.expiry_date else "Unknown"
+        status = food.freshness_status or "Fresh"
+        if food.expiry_date and food.expiry_date < now:
+            reason = f"Past recorded expiry date ({expiry})"
+        elif food.expiry_date and food.expiry_date <= cutoff:
+            reason = f"Expiring soon ({expiry})"
+        else:
+            reason = f"Currently tracked ({status})"
+
+        grouped_food_items.append({
+            "name": food.name,
+            "category": food.category or "Food",
+            "status": status,
+            "zone_name": zone_name,
+            "expiry_date": expiry,
+            "reason": reason,
+            "alert_type": "Fridge Food Summary",
+            "item_type": getattr(food, "item_type", None),
+        })
+        lines.append(f"• {food.name} ({zone_name}) — {status} | Expiry: {expiry}")
+
+    count = len(grouped_food_items)
+    if count > 0:
+        title = (
+            f"Smart Fridge Summary: {count} item(s) need attention"
+            if urgent
+            else f"Smart Fridge Inventory Summary ({count} items)"
+        )
+        message = (
+            "Here is your live Smart Fridge food condition summary:\n\n"
+            + "\n".join(lines)
+        )
+    else:
+        title = "Smart Fridge Summary: All Clear"
+        message = "Your refrigerator has no expiring or spoiled items right now."
+
+    return title, message, grouped_food_items
+
 
 @router.get("")
 def get_user_settings(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -65,9 +134,9 @@ def get_user_settings(current_user: User = Depends(get_current_user), db: Sessio
             "enabled": bool(settings.TELEGRAM_ENABLED) or bool(getattr(settings, "TWILIO_ENABLED", False)),
             "configured": bool(settings.telegram_configured),
             "twilio_configured": bool(
-                settings.TWILIO_ACCOUNT_SID and 
-                settings.TWILIO_AUTH_TOKEN and 
-                (settings.TWILIO_FROM_NUMBER or settings.TWILIO_MESSAGING_SERVICE_SID) and 
+                settings.TWILIO_ACCOUNT_SID and
+                settings.TWILIO_AUTH_TOKEN and
+                (settings.TWILIO_FROM_NUMBER or settings.TWILIO_MESSAGING_SERVICE_SID) and
                 settings.TWILIO_ACCOUNT_SID.startswith("AC") and
                 "xxxxxxxx" not in settings.TWILIO_ACCOUNT_SID and
                 "your_twilio" not in settings.TWILIO_AUTH_TOKEN and
@@ -92,6 +161,7 @@ def get_user_settings(current_user: User = Depends(get_current_user), db: Sessio
             for z in zones
         ]
     }
+
 
 @router.put("")
 def update_user_settings(
@@ -128,7 +198,6 @@ def update_user_settings(
     if "spoilage_reminder_interval_minutes" in update_data and update_data["spoilage_reminder_interval_minutes"]:
         new_int = int(update_data["spoilage_reminder_interval_minutes"])
         from app.models import Alert
-        from datetime import datetime, timedelta
         now = datetime.utcnow()
         open_alerts = db.query(Alert).filter(
             Alert.user_id == current_user.id,
@@ -164,13 +233,11 @@ def update_user_settings(
 
 @router.get("/vapid-public-key")
 def get_vapid_public_key():
-    """
-    Returns the VAPID Public Key for client-side PWA Push Subscription registration.
-    """
     return {
         "public_key": settings.VAPID_PUBLIC_KEY,
         "enabled": settings.WEB_PUSH_ENABLED
     }
+
 
 @router.post("/subscribe-push")
 def subscribe_web_push(
@@ -178,22 +245,17 @@ def subscribe_web_push(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Stores or updates the Web Push (VAPID) subscription JSON from the React PWA service worker.
-    """
     current_user.push_subscription = json.dumps(payload)
     current_user.push_notifications_enabled = True
     db.commit()
     return {"status": "subscribed", "message": "Device successfully registered for Web Push notifications"}
+
 
 @router.post("/unsubscribe-push")
 def unsubscribe_web_push(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Clears Web Push subscription and disables push notifications for the current user.
-    """
     current_user.push_subscription = None
     current_user.push_notifications_enabled = False
     db.commit()
@@ -206,31 +268,25 @@ async def send_test_email(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Dispatches a test HTML email through the primary email channel (SMTP / Resend / Brevo).
-    """
+    """Dispatches a live grouped food summary HTML email."""
     target_email = recipient or current_user.email
     if not target_email:
         raise HTTPException(status_code=400, detail="No email address specified")
 
-    test_metadata = {
-        "food_name": "Demo Organic Strawberries",
-        "expiry_date": "Tomorrow",
-        "status": "Expiring Soon",
-        "image_url": "/api/static/samples/strawberry.jpg"
-    }
-
-    # Temporarily ensure user has this email for delivery
+    title, message, grouped_items = _build_realtime_food_summary(db, current_user)
     user_copy = current_user
     if recipient:
         user_copy.email = recipient
 
     res = await notification.send(
         user=user_copy,
-        title="Smart Fridge Test Email Alert",
-        message="Your email notification service is active and verified! Expiring food alerts and daily digests will be delivered here.",
+        title=title,
+        message=message,
         channel="email",
-        metadata=test_metadata,
+        metadata={
+            "alert_type": "Live Fridge Summary",
+            "food_items": grouped_items,
+        },
         db=db
     )
     return {
@@ -240,14 +296,12 @@ async def send_test_email(
         "result": res.get("email", {})
     }
 
+
 @router.post("/test-push")
 async def send_test_push(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Dispatches a test Web Push notification to the registered browser PWA service worker.
-    """
     if not current_user.push_subscription:
         raise HTTPException(
             status_code=400,
@@ -256,7 +310,7 @@ async def send_test_push(
 
     res = await notification.send(
         user=current_user,
-        title="Smart Fridge Web Push 🔔",
+        title="Smart Fridge Web Push",
         message="Web Push notification test successful! Your phone/browser is now linked.",
         channel="web_push",
         metadata={"action_url": f"{settings.APP_URL}/foods"},
@@ -268,12 +322,9 @@ async def send_test_push(
         "result": res.get("web_push", {})
     }
 
+
 @router.get("/telegram-diagnostic")
 async def check_telegram_diagnostic(current_user: User = Depends(get_current_user)):
-    """
-    Returns a safe diagnostic report of the Telegram Bot API configuration and connectivity
-    without printing or exposing bot tokens or chat ID secrets.
-    """
     return await notification.get_telegram_diagnostic()
 
 
@@ -283,11 +334,7 @@ async def send_test_telegram(
     current_user: User = Depends(get_required_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Dispatches a test notification via the official Telegram Bot API.
-    Confirms delivery only when Telegram API responds with success.
-    Never exposes the bot token in logs or responses.
-    """
+    """Dispatches a live grouped food summary via the Telegram Bot API."""
     target_chat = notification.resolve_telegram_chat_id(user=current_user, override_chat_id=chat_id)
     if not target_chat or "PASTE_YOUR" in str(target_chat):
         raise HTTPException(
@@ -295,21 +342,26 @@ async def send_test_telegram(
             detail="No Telegram Chat ID configured. Please set TELEGRAM_CHAT_ID in backend/.env with your chat ID."
         )
 
-    test_message = "✅ SMART FRIDGE ALERT: Test notification delivered successfully! Your Telegram Bot alert integration is verified and active."
+    title, test_message, grouped_items = _build_realtime_food_summary(db, current_user)
 
     try:
         res = await notification.send(
             user=current_user,
-            title="Smart Fridge Test Alert ✅",
+            title=title,
             message=test_message,
             channel="telegram",
-            metadata={"chat_id": target_chat, "alert_type": "Test Notification"},
+            metadata={
+                "chat_id": target_chat,
+                "alert_type": "Live Fridge Summary",
+                "food_items": grouped_items,
+            },
             db=db,
             repeat_count=1
         )
     except Exception as e:
         safe_msg = notification.sanitize_telegram_token(str(e))
         raise HTTPException(status_code=502, detail=f"Telegram delivery failed: {safe_msg}")
+
     tg_res = res.get("telegram", {})
     success = tg_res.get("success", False)
     if not success:
@@ -337,10 +389,6 @@ async def send_test_sms(
     current_user: User = Depends(get_required_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Dispatches a test message via the active mobile notification provider (Telegram Bot API).
-    If Twilio is explicitly enabled, dispatches via Twilio.
-    """
     target_phone = phone_number or current_user.phone_number or getattr(settings, "TWILIO_TO_NUMBER", None) or getattr(settings, "SMS_TO_NUMBER", None)
     if not target_phone:
         raise HTTPException(status_code=400, detail="No phone number configured. Please enter a mobile number in E.164 format (e.g., +91 9876543210) or configure TWILIO_TO_NUMBER in .env.")
@@ -349,13 +397,14 @@ async def send_test_sms(
     if target_phone:
         user_copy.phone_number = target_phone
 
-    test_message = "SMART FRIDGE ALERT: Test notification delivered successfully! Your refrigerator SMS alert system is active."
+    title, test_message, grouped_items = _build_realtime_food_summary(db, current_user)
 
     res = await notification.send(
         user=user_copy,
-        title="Smart Fridge",
+        title=title,
         message=test_message,
         channel="sms",
+        metadata={"alert_type": "Live Fridge Summary", "food_items": grouped_items},
         db=db,
         repeat_count=1
     )
@@ -386,9 +435,6 @@ def get_notification_logs(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Returns history of sent and attempted notifications with retry count, error status, and timestamp.
-    """
     logs = db.query(NotificationLog).filter(
         NotificationLog.user_id == current_user.id
     ).order_by(NotificationLog.created_at.desc()).limit(limit).all()

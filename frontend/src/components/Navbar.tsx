@@ -1,5 +1,4 @@
-﻿
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Menu, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -24,7 +23,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
-      {/* Left: Mobile hamburger and greeting */}
+      {/* Left: Mobile hamburger and kitchen brand greeting */}
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuToggle}
@@ -35,14 +34,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
 
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-slate-800 tracking-tight">
-              Hello, {firstName} {String.fromCodePoint(0x1F44B)}
+          <div className="flex items-center gap-2.5">
+            <h2 className="kitchen-heading text-xl sm:text-[22px] tracking-tight">
+              {firstName}&rsquo;s Kitchen
             </h2>
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live
+            </span>
           </div>
 
-          <p className="text-xs text-slate-500 hidden sm:block">
-            Your smart pantry is monitored and fresh.
+          <p className="text-xs text-slate-500 hidden sm:block mt-0.5">
+            Smart pantry &amp; freshness assistant
           </p>
         </div>
       </div>
