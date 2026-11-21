@@ -3,7 +3,7 @@ import {
   History as HistoryIcon,
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  IndianRupee,
   CheckCircle2,
   Trash2,
   Package,
@@ -135,10 +135,10 @@ const totalResolvedActivities =
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Est. Value Consumed</span>
-            <DollarSign className="w-5 h-5 text-emerald-600" />
+            <IndianRupee className="w-5 h-5 text-emerald-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-slate-900">
-            ${stats.money_saved}
+            ₹{Math.round(stats.money_saved)}
           </div>
           <p className="text-[11px] text-emerald-600 font-medium mt-1">Estimated value of consumed food</p>
         </div>
@@ -164,7 +164,7 @@ const totalResolvedActivities =
           <div className="text-2xl sm:text-3xl font-black text-rose-600">
             {stats.total_wasted}
           </div>
-          <p className="text-[11px] text-rose-500 font-medium mt-1">Est. loss: ${stats.money_wasted}</p>
+          <p className="text-[11px] text-rose-500 font-medium mt-1">Est. loss: ₹{Math.round(stats.money_wasted)}</p>
         </div>
       </div>
 
@@ -253,7 +253,7 @@ const totalResolvedActivities =
                   <div>
                     <p className="font-bold text-slate-800">{act.food_item_name}</p>
                     <p className="text-[11px] text-slate-400">
-                      {act.quantity} {act.unit} {act.estimated_cost ? `• $${act.estimated_cost}` : ''}
+                      {act.quantity} {act.unit} {act.estimated_cost ? `• ₹${Math.round(act.estimated_cost)}` : ''}
                     </p>
                   </div>
                 </div>
