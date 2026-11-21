@@ -325,3 +325,33 @@
   .sf-auth-card { transition: none; }
   .sf-auth-spinner { animation-duration: 1600ms; }
 }
+/* Keep Login neumorphic card crisp and remove Chrome autofill box in both Light & Dark mode */
+.sf-auth-page {
+  color-scheme: light;
+}
+
+.sf-auth-input {
+  overflow: hidden;
+}
+
+html.dark .sf-auth-form h1 {
+  color: #4a4a4a !important;
+}
+
+html.dark .sf-auth-input input {
+  background-color: transparent !important;
+  color: #42464b !important;
+  border-color: transparent !important;
+}
+
+.sf-auth-input input:-webkit-autofill,
+.sf-auth-input input:-webkit-autofill:hover,
+.sf-auth-input input:-webkit-autofill:focus,
+.sf-auth-input input:-webkit-autofill:active {
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: #42464b !important;
+  caret-color: #42464b !important;
+  box-shadow: inset 0 0 20px 20px transparent !important;
+  transition: background-color 999999s ease-in-out 0s !important;
+}

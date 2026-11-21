@@ -749,4 +749,89 @@ export default function WebcamRecognition() {
               </p>
             </div>
 
-            <div className="rounded-xl bg-slate-5
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-sm text-slate-600">Freshness status</p>
+              <p className="mt-1 text-xl font-bold text-slate-900">
+                {result.freshness_class}
+              </p>
+              {typeof result.freshness_confidence === 'number' && (
+                <p className="mt-2 text-sm text-slate-600">
+                  Freshness confidence: {percentage(result.freshness_confidence)}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-slate-100 p-4">
+              <p className="text-sm text-slate-500">Suggested storage zone</p>
+              <p className="mt-1 font-semibold text-slate-900">
+                {result.suggested_zone_name || 'Not available'}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-100 p-4">
+              <p className="text-sm text-slate-500">Typical shelf life</p>
+              <p className="mt-1 font-semibold text-slate-900">
+                {result.typical_shelf_life_days} day(s)
+              </p>
+            </div>
+          </div>
+
+          {topAlternatives.length > 0 && (
+            <div className="rounded-xl border border-slate-200 p-4 space-y-2.5">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Top class probabilities
+              </h3>
+              <div className="space-y-2">
+                {topAlternatives.map((item, idx) => {
+                  const pct = Math.max(
+                    0,
+                    Math.min(100, Math.round((item.confidence || 0) * 100)),
+                  );
+                  return (
+                    <div key={`${item.item_name}-${idx}`} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium capitalize text-slate-700">
+                          {item.item_name.replaceAll('_', ' ')}
+                        </span>
+                        <span className="font-semibold text-slate-900">
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            idx === 0 ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {result.condition_notes && (
+            <div className="rounded-xl border border-slate-200 p-4">
+              <h3 className="font-semibold text-slate-900">Condition notes</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                {result.condition_notes}
+              </p>
+            </div>
+          )}
+
+          {result.needs_manual_check && (
+            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+              Manual verification is recommended for this image.
+            </p>
+          )}
+
+          <p className="text-xs leading-5 text-slate-500">
+            {prediction.disclaimer}
+          </p>
+        </section>
+      )}
+    </main>
+  );
+}

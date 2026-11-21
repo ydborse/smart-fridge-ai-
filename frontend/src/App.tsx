@@ -38,8 +38,9 @@ const AppContent: React.FC = () => {
   });
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDarkMode);
-    document.documentElement.style.colorScheme = isDarkMode ? 'dark' : 'light';
+    const applyDark = isDarkMode && Boolean(user);
+    document.documentElement.classList.toggle('dark', applyDark);
+    document.documentElement.style.colorScheme = applyDark ? 'dark' : 'light';
 
     try {
       window.localStorage.setItem(
@@ -49,7 +50,7 @@ const AppContent: React.FC = () => {
     } catch {
       // The selected theme still works for the current session.
     }
-  }, [isDarkMode]);
+  }, [isDarkMode, user]);
 
   const fetchUnreadAlerts = async () => {
     try {
