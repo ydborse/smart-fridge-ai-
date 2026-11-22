@@ -30,6 +30,147 @@ logger = logging.getLogger(__name__)
 
 def render_alert_email_html(title: str, message: str, metadata: Optional[Dict[str, Any]] = None) -> str:
     metadata = metadata or {}
+    esc = lambda s: html.escape(str(s)) if s is not None else ""
+
+    # Detect grouped summary (from metadata["food_items"] OR bullet lines in message)
+    grouped_items = metadata.get("food_items")
+    parsed_rows: List[Dict[str, str]] = []
+
+    if isinstance(grouped_items, list) and grouped_items:
+        for item in grouped_items:
+            if not isinstance(item, dict):
+                continue
+            parsed_rows.append({
+                "name": str(item.get("name") or item.get("food_name") or "Food Item"),
+                "zone": str(item.get("zone_name") or item.get("zone") or "Fridge"),
+                "status": str(item.get("status") or "Attention"),
+                "expiry": str(item.get("expiry_date") or "Check soon"),
+            })
+    elif "•" in (message or ""):
+        parts = [p.strip() for p in message.split("•") if p.strip()]
+        # Skip leading intro sentence if it doesn't look like an item row
+        if parts and "—" not in parts[0] and "|" not in parts[0]:
+            parts = parts[1:]
+        for part in parts:
+            # Expected format: "Item Name (Shelf) — Status | Expiry: Nov 18, 2026"
+            name_zone, rest = (part.split("—", 1) + [""])[:2]
+            name_zone = name_zone.strip()
+            zone = "Fridge"
+            name = name_zone
+            m_zone = re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", name_zone)
+            if m_zone:
+                name = m_zone.group(1).strip()
+                zone = m_zone.group(2).strip()
+
+            status_part, expiry_part = (rest.split("|", 1) + [""])[:2]
+            status_val = status_part.strip() or "Attention"
+            expiry_val = re.sub(r"(?i)^expiry:\s*", "", expiry_part.strip()).strip() or "Check soon"
+            parsed_rows.append({
+                "name": name,
+                "zone": zone,
+                "status": status_val,
+                "expiry": expiry_val,
+            })
+
+    def _badge_style(st: str) -> tuple:
+        low = st.lower()
+        if any(k in low for k in ["rotten", "spoiled", "expired"]):
+            return ("#be123c", "#ffe4e6", "#fecdd3")  # rose text, bg, border
+        if any(k in low for k in ["expiring", "overripe", "ripe", "soon", "today"]):
+            return ("#b45309", "#fef3c7", "#fde68a")  # amber text, bg, border
+        return ("#047857", "#d1fae5", "#a7f3d0")      # emerald text, bg, border
+
+    # --- GROUPED SUMMARY EMAIL LAYOUT ---
+    if parsed_rows:
+        critical_count = sum(
+            1 for r in parsed_rows
+            if any(k in r["status"].lower() for k in ["rotten", "spoiled", "expired"])
+        )
+        soon_count = len(parsed_rows) - critical_count
+        action_url = metadata.get("action_url") or f"{settings.APP_URL}/foods"
+
+        rows_html = ""
+        for idx, r in enumerate(parsed_rows):
+            fg, bg, bd = _badge_style(r["status"])
+            row_bg = "#ffffff" if idx % 2 == 0 else "#f8fafc"
+            rows_html += f"""
+            <tr style="background-color: {row_bg};">
+                <td style="padding: 12px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
+                    <div style="font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.3;">{esc(r['name'])}</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">{esc(r['zone'])}</div>
+                </td>
+                <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; text-align: center; white-space: nowrap;">
+                    <span style="display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: {fg}; background-color: {bg}; border: 1px solid {bd};">
+                        {esc(r['status'])}
+                    </span>
+                </td>
+                <td style="padding: 12px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; text-align: right; font-size: 12px; font-weight: 600; color: #334155; white-space: nowrap;">
+                    {esc(r['expiry'])}
+                </td>
+            </tr>
+            """
+
+        summary_pills = f"""
+        <span style="display: inline-block; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #ffe4e6; color: #be123c; margin-right: 8px;">
+            {critical_count} Critical / Past Date
+        </span>
+        """ if critical_count > 0 else ""
+
+        if soon_count > 0:
+            summary_pills += f"""
+            <span style="display: inline-block; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #fef3c7; color: #b45309;">
+                {soon_count} Use Soon
+            </span>
+            """
+
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px 12px; color: #1e293b;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);">
+                <div style="background: linear-gradient(135deg, #047857, #10b981); padding: 26px 24px; color: #ffffff;">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">Smart Fridge AI · Live Kitchen Report</div>
+                    <h1 style="margin: 6px 0 0 0; font-size: 21px; font-weight: 800; letter-spacing: -0.3px;">{esc(title)}</h1>
+                </div>
+
+                <div style="padding: 22px 24px;">
+                    <div style="margin-bottom: 16px;">
+                        {summary_pills}
+                    </div>
+
+                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                    <th style="padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Item &amp; Shelf</th>
+                                    <th style="padding: 10px 10px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Condition</th>
+                                    <th style="padding: 10px 14px; text-align: right; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Expiry Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows_html}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top: 22px; text-align: center;">
+                        <a href="{action_url}" style="display: inline-block; background-color: #059669; color: #ffffff !important; padding: 13px 28px; border-radius: 10px; font-size: 14px; font-weight: 700; text-decoration: none;">
+                            Open Smart Fridge Inventory &rarr;
+                        </a>
+                    </div>
+                </div>
+
+                <div style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.5;">
+                    Freshness predictions are assistive and not a food safety guarantee.<br>
+                    Manage alert schedules and quiet hours anytime in Smart Fridge Settings.
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+    # --- SINGLE-ITEM ALERT EMAIL LAYOUT ---
     food_name = metadata.get("food_name", "Pantry Item")
     expiry_date = metadata.get("expiry_date", "Soon")
     status = metadata.get("status", "Attention")
@@ -39,56 +180,44 @@ def render_alert_email_html(title: str, message: str, metadata: Optional[Dict[st
     if food_id:
         action_url = f"{settings.APP_URL}/foods?action=mark_used&id={food_id}"
 
-    status_color = "#f43f5e" if status in ["Expired", "Rotten"] else "#f59e0b" if status in ["Expiring Soon", "Ripe", "Overripe"] else "#22c55e"
-    status_bg = "#fff1f2" if status in ["Expired", "Rotten"] else "#fef3c7" if status in ["Expiring Soon", "Ripe", "Overripe"] else "#f0fdf4"
+    status_color, status_bg, status_bd = _badge_style(status)
+    formatted_msg = esc(message).replace("\n", "<br>")
 
     img_html = ""
     if image_url:
         full_img_url = image_url if image_url.startswith("http") else f"{settings.APP_URL}{image_url}"
         img_html = f'''
         <div style="text-align: center; margin: 16px 0;">
-            <img src="{full_img_url}" alt="{food_name}" style="max-width: 220px; max-height: 180px; border-radius: 12px; object-fit: cover; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" />
+            <img src="{full_img_url}" alt="{esc(food_name)}" style="max-width: 220px; max-height: 180px; border-radius: 12px; object-fit: cover; border: 1px solid #e2e8f0;" />
         </div>
         '''
 
     return f"""
     <!DOCTYPE html>
     <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }}
-            .container {{ max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }}
-            .header {{ background: linear-gradient(135deg, #16a34a, #22c55e); padding: 28px 24px; text-align: center; color: white; }}
-            .header h1 {{ margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }}
-            .header p {{ margin: 4px 0 0 0; font-size: 13px; opacity: 0.9; }}
-            .content {{ padding: 24px; }}
-            .alert-card {{ background: #f8fafc; border-radius: 14px; padding: 18px; border: 1px solid #e2e8f0; margin-bottom: 20px; }}
-            .status-badge {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: {status_color}; background-color: {status_bg}; }}
-            .btn {{ display: block; text-align: center; background: #22c55e; color: #ffffff !important; padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 700; text-decoration: none; box-shadow: 0 2px 10px rgba(34, 197, 94, 0.3); }}
-            .footer {{ padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Smart Fridge Assistant</h1>
-                <p>Smart Food. Healthy You.</p>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px 12px; color: #1e293b;">
+        <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);">
+            <div style="background: linear-gradient(135deg, #047857, #10b981); padding: 26px 24px; text-align: center; color: white;">
+                <h1 style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.3px;">Smart Fridge Assistant</h1>
+                <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">Smart Food. Healthy You.</p>
             </div>
-            <div class="content">
-                <div class="alert-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span class="status-badge">{status}</span>
-                        <span style="font-size: 12px; color: #64748b;">Expires: <strong>{expiry_date}</strong></span>
+            <div style="padding: 24px;">
+                <div style="background: #f8fafc; border-radius: 14px; padding: 18px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                    <div style="margin-bottom: 10px;">
+                        <span style="display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; color: {status_color}; background-color: {status_bg}; border: 1px solid {status_bd};">{esc(status)}</span>
+                        <span style="float: right; font-size: 12px; color: #64748b;">Expires: <strong>{esc(expiry_date)}</strong></span>
                     </div>
-                    <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 4px 0;">{food_name}</div>
-                    <h2 style="margin: 6px 0; font-size: 15px; color: #334155; font-weight: 600;">{title}</h2>
-                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #475569; line-height: 1.5;">{message}</p>
+                    <div style="font-size: 17px; font-weight: 700; color: #0f172a; margin: 6px 0 4px 0;">{esc(food_name)}</div>
+                    <div style="font-size: 14px; color: #334155; font-weight: 600; margin-bottom: 6px;">{esc(title)}</div>
+                    <p style="margin: 0; font-size: 13px; color: #475569; line-height: 1.6;">{formatted_msg}</p>
                     {img_html}
                 </div>
-                <a href="{action_url}" class="btn">Mark as Used / Consumed</a>
+                <a href="{action_url}" style="display: block; text-align: center; background: #059669; color: #ffffff !important; padding: 13px 24px; border-radius: 10px; font-size: 14px; font-weight: 700; text-decoration: none;">
+                    Open Smart Fridge Inventory &rarr;
+                </a>
             </div>
-            <div class="footer">
+            <div style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
                 Freshness predictions are assistive and not a food safety guarantee.<br>
                 Configure email lead times and quiet hours in your Smart Fridge Settings.
             </div>

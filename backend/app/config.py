@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api"
     SECRET_KEY: str = "smart_fridge_super_secret_jwt_key_2026_change_in_prod"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
-    APP_URL: str = "http://localhost:5173"
+    APP_URL: str = "http://localhost:5174"
 
     # Database: Default to SQLite file anchored to project root
     DATABASE_URL: str = f"sqlite:///{os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'smart_fridge.db')).replace(os.sep, '/')}"
