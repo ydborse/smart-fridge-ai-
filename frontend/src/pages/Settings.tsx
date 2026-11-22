@@ -1231,18 +1231,18 @@ export const Settings: React.FC = () => {const location = useLocation();
             {/* Diagnostic Result Banner */}
             {testTelegramResult && (
               <div className={`p-3 rounded-xl border text-xs space-y-1 ${
-                testTelegramResult.status === 'delivered' 
+                (testTelegramResult.status === 'success' || testTelegramResult.delivery_status === 'delivered') 
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
                   : 'bg-rose-50 border-rose-200 text-rose-900'
               }`}>
                 <div className="flex items-center justify-between font-bold">
                   <span className="flex items-center gap-1.5">
-                    {testTelegramResult.status === 'delivered' ? (
+                    {testTelegramResult.status === 'success' || testTelegramResult.delivery_status === 'delivered' ? (
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     ) : (
                       <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                     )}
-                    {testTelegramResult.status === 'delivered' ? 'Telegram Message Delivered' : 'Telegram Transmission Failed'}
+                    {(testTelegramResult.status === 'success' || testTelegramResult.delivery_status === 'delivered') ? 'Telegram Message Delivered' : 'Telegram Transmission Failed'}
                   </span>
                   <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white/80 border">
                     Msg ID: {testTelegramResult.provider_message_id || 'N/A'}
