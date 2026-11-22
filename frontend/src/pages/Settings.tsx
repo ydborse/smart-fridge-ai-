@@ -653,44 +653,66 @@ export const Settings: React.FC = () => {const location = useLocation();
       <form onSubmit={handleSave} className="space-y-6">
         {/* Profile & Contact */}
 <div
-  id="profile"
-  className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 scroll-mt-6"
->
-  <h2 className="text-lg font-bold text-slate-800">
-    Profile & Contact
-  </h2>
+          id="profile"
+          className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-soft space-y-5 scroll-mt-24"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
+                {(fullName || 'Y').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-slate-800">
+                    Profile &amp; Contact
+                  </h2>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    Active Account
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 truncate mt-0.5">
+                  {email || 'Manage your display name and alert contact details'}
+                </p>
+              </div>
+            </div>
 
-  <div>
-    <label className="mb-2 block text-sm font-medium text-slate-700">
-      Full Name
-    </label>
-    <input
-      type="text"
-      value={fullName}
-      onChange={(e) => setFullName(e.target.value)}
-      required
-      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-600"
-      placeholder="Enter your name"
-    />
-  </div>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors shrink-0"
+            >
+              Save Profile
+            </button>
+          </div>
 
-  <div>
-    <label className="mb-2 block text-sm font-medium text-slate-700">
-      Phone Number
-    </label>
-    <input
-      type="tel"
-      value={phoneNumber}
-      onChange={(e) => setPhoneNumber(e.target.value)}
-      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-600"
-      placeholder="Enter your phone number"
-    />
-  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:bg-white focus:border-emerald-600 transition-colors"
+                placeholder="Enter your name"
+              />
+            </div>
 
-  <p className="text-xs text-slate-500">
-    Use the Save Settings & Preferences button below to save changes.
-  </p>
-</div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:bg-white focus:border-emerald-600 transition-colors"
+                placeholder="+91 9876543210"
+              />
+            </div>
+          </div>
+        </div>
         {/* =================================================================== */}
         {/* 1. PRIMARY: EMAIL NOTIFICATIONS (SMTP / Resend / Brevo)             */}
         {/* =================================================================== */}
