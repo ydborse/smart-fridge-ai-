@@ -4,18 +4,15 @@ import {
   Camera,
   Barcode,
   Edit3,
-  Upload,
-  CheckCircle2,
   AlertTriangle,
   Sparkles,
-  Layers,
   Calendar,
   ScanLine,
-  Image as ImageIcon,
   Check,
   RotateCcw,
-  ArrowRight,
-  Milk
+  Milk,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { aiApi, foodsApi, zonesApi, datasetApi } from '../services/api';
@@ -38,6 +35,156 @@ const PRODUCE_SHELF_LIFE: Record<string, number> = {
   cucumber: 10,
   potato: 28,
   onion: 30,
+  mango: 6,
+};
+
+const WORD_NUMBERS: Record<string, number> = {
+  a: 1,
+  an: 1,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  dozen: 12,
+};
+
+const UNIT_ALIASES: Record<string, string> = {
+  pack: 'pack',
+  packs: 'pack',
+  packet: 'pack',
+  packets: 'pack',
+  bottle: 'bottle',
+  bottles: 'bottle',
+  kg: 'kg',
+  kilo: 'kg',
+  kilos: 'kg',
+  kilogram: 'kg',
+  kilograms: 'kg',
+  g: 'g',
+  gram: 'g',
+  grams: 'g',
+  l: 'L',
+  liter: 'L',
+  liters: 'L',
+  litre: 'L',
+  litres: 'L',
+  piece: 'pcs',
+  pieces: 'pcs',
+  pcs: 'pcs',
+  bowl: 'bowl',
+  bowls: 'bowl',
+  box: 'box',
+  boxes: 'box',
+  bunch: 'bunch',
+  bunches: 'bunch',
+  cup: 'cup',
+  cups: 'cup',
+};
+
+const formatOffsetDate = (days: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+};
+
+const parseVoiceFoodInput = (transcript: string) => {
+  const cleaned = transcript
+    .trim()
+    .replace(/^(add|store|put|log)\s+/i, '')
+    .replace(/[.,!?]+$/g, '');
+
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  let qty = 1;
+  let detectedUnit = '';
+  let startIndex = 0;
+
+  if (tokens.length > 0) {
+    const firstLower = tokens[0].toLowerCase();
+    if (/^\d+$/.test(firstLower)) {
+      qty = Math.max(1, parseInt(firstLower, 10));
+      startIndex = 1;
+    } else if (WORD_NUMBERS[firstLower] !== undefined) {
+      qty = WORD_NUMBERS[firstLower];
+      startIndex = 1;
+    }
+  }
+
+  if (tokens.length > startIndex) {
+    const nextLower = tokens[startIndex].toLowerCase();
+    if (UNIT_ALIASES[nextLower]) {
+      detectedUnit = UNIT_ALIASES[nextLower];
+      startIndex += 1;
+      if (tokens[startIndex]?.toLowerCase() === 'of') {
+        startIndex += 1;
+      }
+    }
+  }
+
+  const rawName = tokens.slice(startIndex).join(' ') || cleaned;
+  const formattedName = rawName
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+
+  const lower = rawName.toLowerCase();
+
+  let category = 'Packaged';
+  let itemType: 'fruit' | 'vegetable' | 'packaged' = 'packaged';
+  let shelfDays = 7;
+
+  if (/(milk|curd|yogurt|dahi|paneer|cheese|butter|ghee|cream)/.test(lower)) {
+    category = 'Dairy';
+    itemType = 'packaged';
+    shelfDays = 5;
+  } else if (/(apple|banana|orange|mango|strawberry|grape|lychee|papaya|berry|fruit|melon|guava|pomegranate)/.test(lower)) {
+    category = 'Fruits';
+    itemType = 'fruit';
+    const matchedKey = Object.keys(PRODUCE_SHELF_LIFE).find((k) => lower.includes(k));
+    shelfDays = matchedKey ? PRODUCE_SHELF_LIFE[matchedKey] : 7;
+  } else if (/(tomato|potato|onion|carrot|capsicum|broccoli|cucumber|spinach|palak|coriander|chilli|chili|bhindi|cauliflower|cabbage|peas|vegetable|veggie)/.test(lower)) {
+    category = 'Vegetables';
+    itemType = 'vegetable';
+    const matchedKey = Object.keys(PRODUCE_SHELF_LIFE).find((k) => lower.includes(k));
+    shelfDays = matchedKey ? PRODUCE_SHELF_LIFE[matchedKey] : 7;
+  } else if (/(leftover|cooked|curry|dal|rice|roti|sabzi|biryani|khichdi|pasta|soup)/.test(lower)) {
+    category = 'Leftovers';
+    itemType = 'packaged';
+    shelfDays = 2;
+  } else if (/(chicken|mutton|fish|prawn|egg|eggs|meat|seafood)/.test(lower)) {
+    category = 'Meat/Seafood';
+    itemType = 'packaged';
+    shelfDays = 2;
+  } else if (/(juice|soda|cola|lassi|buttermilk|chaas|water|drink|coffee|tea)/.test(lower)) {
+    category = 'Beverages';
+    itemType = 'packaged';
+    shelfDays = 10;
+  }
+
+  const defaultUnit =
+    detectedUnit ||
+    (itemType === 'fruit' || itemType === 'vegetable'
+      ? 'pcs'
+      : category === 'Leftovers'
+      ? 'bowl'
+      : category === 'Beverages'
+      ? 'bottle'
+      : 'pack');
+
+  return {
+    name: formattedName,
+    quantity: qty,
+    unit: defaultUnit,
+    category,
+    itemType,
+    expiryDate: formatOffsetDate(shelfDays),
+  };
 };
 
 const calculateProduceExpiryDate = (itemName: string, freshness: string): string => {
@@ -53,11 +200,9 @@ const calculateProduceExpiryDate = (itemName: string, freshness: string): string
   } else if (freshness === 'Rotten') {
     days = 0;
   } else if (freshness === 'Uncertain') {
-    days = 1; // Temporary 1-day hold until inspected by user
+    days = 1;
   }
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split('T')[0];
+  return formatOffsetDate(days);
 };
 
 export const AddFood: React.FC = () => {
@@ -68,7 +213,6 @@ export const AddFood: React.FC = () => {
   const navigate = useNavigate();
 
   // Fruit scan state
-  const [fruitImageFile, setFruitImageFile] = useState<File | null>(null);
   const [fruitImagePreview, setFruitImagePreview] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
   const [predictionError, setPredictionError] = useState<string | null>(null);
@@ -83,13 +227,13 @@ export const AddFood: React.FC = () => {
   const [barcodeInput, setBarcodeInput] = useState<string>('');
   const [barcodeProduct, setBarcodeProduct] = useState<BarcodeProduct | null>(null);
   const [barcodeExpiryDate, setBarcodeExpiryDate] = useState<string>('');
-  const [isScanningLive, setIsScanningLive] = useState<boolean>(false);
   const [ocrLoading, setOcrLoading] = useState<boolean>(false);
   const [ocrCameraOpen, setOcrCameraOpen] = useState(false);
   const [ocrCameraActive, setOcrCameraActive] = useState(false);
 
   const ocrVideoRef = useRef<HTMLVideoElement>(null);
   const ocrCameraStreamRef = useRef<MediaStream | null>(null);
+
   // Manual input state
   const [manualName, setManualName] = useState('');
   const [manualCategory, setManualCategory] = useState('Dairy');
@@ -99,13 +243,24 @@ export const AddFood: React.FC = () => {
   const [manualExpiry, setManualExpiry] = useState('');
   const [manualZoneId, setManualZoneId] = useState(2);
 
+  // Voice input state (Web Speech API)
+  const [isListening, setIsListening] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ocrInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-  return () => {
-    ocrCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
-  };
-}, []);
+    return () => {
+      ocrCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // ignore cleanup errors
+      }
+    };
+  }, []);
 
   useEffect(() => {
     zonesApi.getAll().then((data) => {
@@ -116,11 +271,84 @@ export const AddFood: React.FC = () => {
       }
     });
 
-    // Default expiry today + 7 days
-    const def = new Date();
-    def.setDate(def.getDate() + 7);
-    setManualExpiry(def.toISOString().split('T')[0]);
+    setManualExpiry(formatOffsetDate(7));
   }, []);
+
+  // --- Voice Recognition Handler ---
+  const handleToggleVoiceInput = () => {
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // ignore
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognitionAPI =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      showToast(
+        'warning',
+        'Voice input is supported in Chrome and Edge browsers.',
+        'Browser Unsupported'
+      );
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognitionAPI();
+      recognition.lang = 'en-IN';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setVoiceTranscript(null);
+      };
+
+      recognition.onresult = (event: any) => {
+        const spokenText = event.results?.[0]?.[0]?.transcript || '';
+        if (!spokenText) return;
+
+        setVoiceTranscript(spokenText);
+        const parsed = parseVoiceFoodInput(spokenText);
+        setManualName(parsed.name);
+        setManualQuantity(parsed.quantity);
+        setManualUnit(parsed.unit);
+        setManualCategory(parsed.category);
+        setManualItemType(parsed.itemType);
+        setManualExpiry(parsed.expiryDate);
+
+        showToast(
+          'success',
+          `Auto-filled "${parsed.name}" (${parsed.quantity} ${parsed.unit}, ${parsed.category})`,
+          'Voice Captured'
+        );
+      };
+
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        if (event.error === 'not-allowed') {
+          showToast('error', 'Microphone permission denied. Please allow mic access in browser settings.');
+        } else if (event.error !== 'no-speech') {
+          showToast('error', `Voice error: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      showToast('error', 'Could not start voice recognition.');
+    }
+  };
 
   // --- Dynamic Produce Condition & Name Handlers ---
   const handleFreshnessChange = (newFreshness: string) => {
@@ -141,8 +369,6 @@ export const AddFood: React.FC = () => {
 
   // --- Fruit / Veg Scan Handlers ---
   const handleFruitPhotoSelect = async (file: File) => {
-    // Cleanly reset previous image prediction and selections
-    setFruitImageFile(file);
     setFruitImagePreview(URL.createObjectURL(file));
     setPrediction(null);
     setPredictionError(null);
@@ -192,7 +418,6 @@ export const AddFood: React.FC = () => {
 
     setLoading(true);
     try {
-      // 1. Save food item
       const expiry = adjustedExpiryDate ? new Date(adjustedExpiryDate).toISOString() : new Date().toISOString();
       await foodsApi.create({
         name: selectedItemName,
@@ -207,7 +432,6 @@ export const AddFood: React.FC = () => {
         source: 'fruit_scan'
       });
 
-      // 2. Submit feedback if user corrected label
       if (prediction && (selectedItemName !== prediction.top_prediction.item_name || selectedFreshness !== prediction.top_prediction.freshness_class)) {
         await datasetApi.submitFeedback({
           correct_item_name: selectedItemName,
@@ -219,7 +443,7 @@ export const AddFood: React.FC = () => {
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
       showToast('success', `${selectedItemName} added to ${zones.find(z => z.id === targetZoneId)?.name}!`, 'Item Stored');
       setTimeout(() => navigate('/'), 1000);
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to save item');
     } finally {
       setLoading(false);
@@ -236,7 +460,7 @@ export const AddFood: React.FC = () => {
       setBarcodeExpiryDate(new Date(prod.suggested_expiry_date).toISOString().split('T')[0]);
       setTargetZoneId(prod.suggested_zone_id);
       showToast('success', `Found: ${prod.name} (${prod.brand || 'Generic'})`, 'Product Verified');
-    } catch (err) {
+    } catch {
       showToast('error', 'Could not find product for barcode');
     } finally {
       setLoading(false);
@@ -253,110 +477,112 @@ export const AddFood: React.FC = () => {
       } else {
         showToast('info', 'Could not parse date text, please enter manually.');
       }
-    } catch (err) {
+    } catch {
       showToast('error', 'OCR failed on label photo');
     } finally {
       setOcrLoading(false);
     }
   };
-const stopOcrCamera = () => {
-  ocrCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
-  ocrCameraStreamRef.current = null;
 
-  if (ocrVideoRef.current) {
-    ocrVideoRef.current.srcObject = null;
-  }
-
-  setOcrCameraActive(false);
-  setOcrCameraOpen(false);
-};
-
-const startOcrCamera = async () => {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    showToast('error', 'Webcam access requires localhost or HTTPS.');
-    return;
-  }
-
-  try {
-    setOcrCameraOpen(true);
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
-      audio: false,
-    });
-
-    ocrCameraStreamRef.current = stream;
-
-    const video = ocrVideoRef.current;
-
-    if (!video) {
-      stream.getTracks().forEach((track) => track.stop());
-      ocrCameraStreamRef.current = null;
-      throw new Error('Could not initialize webcam preview.');
-    }
-
-    video.srcObject = stream;
-    await video.play();
-
-    setOcrCameraActive(true);
-  } catch (err) {
+  const stopOcrCamera = () => {
     ocrCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
     ocrCameraStreamRef.current = null;
+
+    if (ocrVideoRef.current) {
+      ocrVideoRef.current.srcObject = null;
+    }
+
     setOcrCameraActive(false);
     setOcrCameraOpen(false);
+  };
 
-    showToast(
-      'error',
-      err instanceof Error ? err.message : 'Could not open webcam.',
-    );
-  }
-};
+  const startOcrCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      showToast('error', 'Webcam access requires localhost or HTTPS.');
+      return;
+    }
 
-const captureOcrLabel = () => {
-  const video = ocrVideoRef.current;
+    try {
+      setOcrCameraOpen(true);
 
-  if (!video || !video.videoWidth || !video.videoHeight) {
-    showToast('warning', 'Wait for the camera preview before capturing.');
-    return;
-  }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
 
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+      ocrCameraStreamRef.current = stream;
 
-  const context = canvas.getContext('2d');
+      const video = ocrVideoRef.current;
 
-  if (!context) {
-    showToast('error', 'Could not capture the package label.');
-    return;
-  }
-
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  canvas.toBlob(
-    (blob) => {
-      if (!blob) {
-        showToast('error', 'Could not create the label image.');
-        return;
+      if (!video) {
+        stream.getTracks().forEach((track) => track.stop());
+        ocrCameraStreamRef.current = null;
+        throw new Error('Could not initialize webcam preview.');
       }
 
-      const file = new File(
-        [blob],
-        `expiry-label-${Date.now()}.jpg`,
-        { type: 'image/jpeg' },
-      );
+      video.srcObject = stream;
+      await video.play();
 
-      stopOcrCamera();
-      void handleOcrExpiryUpload(file);
-    },
-    'image/jpeg',
-    0.92,
-  );
-};
+      setOcrCameraActive(true);
+    } catch (err) {
+      ocrCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      ocrCameraStreamRef.current = null;
+      setOcrCameraActive(false);
+      setOcrCameraOpen(false);
+
+      showToast(
+        'error',
+        err instanceof Error ? err.message : 'Could not open webcam.',
+      );
+    }
+  };
+
+  const captureOcrLabel = () => {
+    const video = ocrVideoRef.current;
+
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      showToast('warning', 'Wait for the camera preview before capturing.');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      showToast('error', 'Could not capture the package label.');
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          showToast('error', 'Could not create the label image.');
+          return;
+        }
+
+        const file = new File(
+          [blob],
+          `expiry-label-${Date.now()}.jpg`,
+          { type: 'image/jpeg' },
+        );
+
+        stopOcrCamera();
+        void handleOcrExpiryUpload(file);
+      },
+      'image/jpeg',
+      0.92,
+    );
+  };
+
   const handleConfirmBarcodeSave = async () => {
     if (!barcodeProduct) return;
     setLoading(true);
@@ -380,7 +606,7 @@ const captureOcrLabel = () => {
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
       showToast('success', `${barcodeProduct.name} saved to fridge!`);
       setTimeout(() => navigate('/'), 1000);
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to store barcode product');
     } finally {
       setLoading(false);
@@ -407,7 +633,7 @@ const captureOcrLabel = () => {
       confetti({ particleCount: 70, spread: 50, origin: { y: 0.6 } });
       showToast('success', `${manualName} saved to pantry!`);
       setTimeout(() => navigate('/'), 1000);
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to add food item');
     } finally {
       setLoading(false);
@@ -423,7 +649,7 @@ const captureOcrLabel = () => {
           Add Food & AI Recognition
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Scan fresh produce using computer vision, lookup packaged barcodes, or enter manually
+          Scan fresh produce using computer vision, lookup packaged barcodes, or enter manually by typing or voice
         </p>
       </div>
 
@@ -470,7 +696,7 @@ const captureOcrLabel = () => {
           }`}
         >
           <Edit3 className="w-4 h-4" />
-          Manual Entry
+          Manual / Voice
         </button>
       </div>
 
@@ -617,7 +843,6 @@ const captureOcrLabel = () => {
                 </div>
               </div>
 
-              {/* Condition Assessment / Damage Warning Banner */}
               {prediction.top_prediction.condition_notes && (
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-1">
                   <div className="flex items-center gap-2 font-bold text-amber-900">
@@ -630,7 +855,6 @@ const captureOcrLabel = () => {
                 </div>
               )}
 
-              {/* Dedicated Dairy OCR Date & Type Display */}
               {prediction.top_prediction.is_dairy && (
                 <div className="p-4 rounded-xl bg-white border border-indigo-100 shadow-sm space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -687,7 +911,6 @@ const captureOcrLabel = () => {
                 </div>
               )}
 
-              {/* Warning for Unknown items */}
               {prediction.top_prediction.is_unknown && (
                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
@@ -695,7 +918,6 @@ const captureOcrLabel = () => {
                 </div>
               )}
 
-              {/* Specific Condition & Confidence Warnings */}
               {prediction.top_prediction.freshness_class === 'Rotten' && !prediction.top_prediction.is_dairy && (
                 <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
@@ -778,7 +1000,7 @@ const captureOcrLabel = () => {
                       </select>
                       {selectedFreshness === 'Uncertain' && (
                         <p className="text-[11px] text-amber-700 font-medium mt-1">
-                          ⚠️ Please choose an inspected condition before confirming storage.
+                          Please choose an inspected condition before confirming storage.
                         </p>
                       )}
                     </div>
@@ -824,7 +1046,7 @@ const captureOcrLabel = () => {
                       min="1"
                       step="1"
                       value={quantity}
-                      onChange={(e) => setQuantity(parseFloat(e.target.value) || 1)}
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
                     />
                   </div>
@@ -840,7 +1062,6 @@ const captureOcrLabel = () => {
                 </div>
               </div>
 
-              {/* Confirm & Save Button */}
               <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between">
                 <p className="text-[11px] text-slate-500 italic max-w-sm">
                   {prediction.disclaimer}
@@ -858,7 +1079,7 @@ const captureOcrLabel = () => {
         </div>
       )}
 
-      {/* TAB 2: BARCODE SCANNING (Open Food Facts + OCR Expiry) */}
+      {/* TAB 2: BARCODE SCANNING */}
       {activeTab === 'barcode_scan' && (
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-soft space-y-6">
           <div className="border-b border-slate-100 pb-4">
@@ -870,7 +1091,6 @@ const captureOcrLabel = () => {
             </p>
           </div>
 
-          {/* Barcode Search / Scan Interface */}
           <div className="space-y-4">
             <div className="flex gap-2">
               <input
@@ -891,7 +1111,6 @@ const captureOcrLabel = () => {
               </button>
             </div>
 
-            {/* Quick Demo Barcode Buttons */}
             <div>
               <p className="text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
                 Or click sample barcodes to test:
@@ -919,7 +1138,6 @@ const captureOcrLabel = () => {
             </div>
           </div>
 
-          {/* Barcode Product Card Confirmation */}
           {barcodeProduct && (
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 animate-in fade-in duration-300">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200/70 pb-3">
@@ -942,7 +1160,6 @@ const captureOcrLabel = () => {
                 )}
               </div>
 
-              {/* Expiry Date Section + Optional OCR */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
@@ -976,100 +1193,97 @@ const captureOcrLabel = () => {
               </div>
 
               {/* OCR Expiry Label Photo Scanner Feature */}
-<div className="p-3.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-  <div>
-    <p className="text-xs font-bold text-slate-800">
-      Scan Expiry Date from Package Label (OCR)
-    </p>
-    <p className="text-[11px] text-slate-400 mt-1">
-      Capture the printed EXP or BEST BEFORE date, then verify it.
-    </p>
-  </div>
+              <div className="p-3.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-slate-800">
+                    Scan Expiry Date from Package Label (OCR)
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Capture the printed EXP or BEST BEFORE date, then verify it.
+                  </p>
+                </div>
 
-  <input
-    type="file"
-    ref={ocrInputRef}
-    accept="image/*"
-    capture="environment"
-    className="hidden"
-    onChange={(e) => {
-      const file = e.target.files?.[0];
+                <input
+                  type="file"
+                  ref={ocrInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void handleOcrExpiryUpload(file);
+                    }
+                    e.currentTarget.value = '';
+                  }}
+                />
 
-      if (file) {
-        void handleOcrExpiryUpload(file);
-      }
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={ocrLoading}
+                    onClick={() => ocrInputRef.current?.click()}
+                    className="px-3 py-2 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold"
+                  >
+                    {ocrLoading ? 'Reading...' : 'Upload Label'}
+                  </button>
 
-      e.currentTarget.value = '';
-    }}
-  />
+                  <button
+                    type="button"
+                    disabled={ocrLoading || ocrCameraOpen}
+                    onClick={() => void startOcrCamera()}
+                    className="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1.5"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    Use Webcam
+                  </button>
+                </div>
+              </div>
 
-  <div className="flex flex-wrap gap-2">
-    <button
-      type="button"
-      disabled={ocrLoading}
-      onClick={() => ocrInputRef.current?.click()}
-      className="px-3 py-2 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold"
-    >
-      {ocrLoading ? 'Reading...' : 'Upload Label'}
-    </button>
+              <div
+                className={
+                  ocrCameraOpen
+                    ? 'mt-3 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3'
+                    : 'hidden'
+                }
+              >
+                <div>
+                  <p className="text-sm font-bold text-slate-800">
+                    Capture the printed expiry date
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Move close to the date, keep the text in focus, and use good lighting.
+                  </p>
+                </div>
 
-    <button
-      type="button"
-      disabled={ocrLoading || ocrCameraOpen}
-      onClick={() => void startOcrCamera()}
-      className="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold flex items-center gap-1.5"
-    >
-      <Camera className="w-3.5 h-3.5" />
-      Use Webcam
-    </button>
-  </div>
-</div>
+                <video
+                  ref={ocrVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full max-h-80 rounded-xl bg-slate-950 object-contain"
+                />
 
-<div
-  className={
-    ocrCameraOpen
-      ? 'mt-3 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3'
-      : 'hidden'
-  }
->
-  <div>
-    <p className="text-sm font-bold text-slate-800">
-      Capture the printed expiry date
-    </p>
-    <p className="text-xs text-slate-500 mt-1">
-      Move close to the date, keep the text in focus, and use good lighting.
-    </p>
-  </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={!ocrCameraActive || ocrLoading}
+                    onClick={captureOcrLabel}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
+                  >
+                    Capture & Read Date
+                  </button>
 
-  <video
-    ref={ocrVideoRef}
-    autoPlay
-    playsInline
-    muted
-    className="w-full max-h-80 rounded-xl bg-slate-950 object-contain"
-  />
+                  <button
+                    type="button"
+                    onClick={stopOcrCamera}
+                    className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
 
-  <div className="flex flex-wrap gap-2">
-    <button
-      type="button"
-      disabled={!ocrCameraActive || ocrLoading}
-      onClick={captureOcrLabel}
-      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
-    >
-      Capture & Read Date
-    </button>
-
-    <button
-      type="button"
-      onClick={stopOcrCamera}
-      className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
-    >
-      Cancel
-    </button>
-  </div>
-</div>
-
-              {/* Save Button */}
               <div className="pt-2 flex justify-end">
                 <button
                   onClick={handleConfirmBarcodeSave}
@@ -1085,27 +1299,80 @@ const captureOcrLabel = () => {
         </div>
       )}
 
-      {/* TAB 3: MANUAL ENTRY */}
+      {/* TAB 3: MANUAL / VOICE ENTRY */}
       {activeTab === 'manual' && (
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-soft">
-          <div className="border-b border-slate-100 pb-4 mb-5">
-            <h2 className="text-base font-bold text-slate-800">Manual Food Registration</h2>
-            <p className="text-xs text-slate-500">
-              Manually log homemade leftovers, deli items, or custom groceries
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-5">
+            <div>
+              <h2 className="text-base font-bold text-slate-800">Manual & Voice Food Registration</h2>
+              <p className="text-xs text-slate-500">
+                Type manually or click Speak and say e.g. &ldquo;2 packs Amul milk&rdquo; or &ldquo;5 tomatoes&rdquo;
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleToggleVoiceInput}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                isListening
+                  ? 'bg-rose-600 text-white border-rose-600 animate-pulse shadow-md shadow-rose-500/25'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+              }`}
+            >
+              {isListening ? (
+                <>
+                  <MicOff className="w-4 h-4" />
+                  Listening... Click to Stop
+                </>
+              ) : (
+                <>
+                  <Mic className="w-4 h-4" />
+                  Voice Add (Hands-Free)
+                </>
+              )}
+            </button>
           </div>
+
+          {voiceTranscript && (
+            <div className="mb-4 px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between gap-2">
+              <span>
+                <strong>Heard:</strong> &ldquo;{voiceTranscript}&rdquo; — form fields auto-filled below.
+              </span>
+              <button
+                type="button"
+                onClick={() => setVoiceTranscript(null)}
+                className="text-emerald-700 hover:underline font-semibold shrink-0"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleManualSave} className="space-y-4">
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">Food Item Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Cooked Chicken Curry, Leftover Rice, Organic Berries..."
-                value={manualName}
-                onChange={(e) => setManualName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                required
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. Cooked Chicken Curry, Leftover Rice, Organic Berries..."
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={handleToggleVoiceInput}
+                  title={isListening ? 'Stop listening' : 'Speak item name'}
+                  className={`px-3.5 py-2.5 rounded-xl border transition-all flex items-center justify-center ${
+                    isListening
+                      ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-emerald-400 hover:text-emerald-700'
+                  }`}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1146,7 +1413,7 @@ const captureOcrLabel = () => {
                   min="1"
                   step="1"
                   value={manualQuantity}
-                  onChange={(e) => setManualQuantity(parseFloat(e.target.value) || 1)}
+                  onChange={(e) => setManualQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm"
                   required
                 />

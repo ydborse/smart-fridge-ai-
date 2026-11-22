@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   History as HistoryIcon,
   TrendingUp,
-  TrendingDown,
   IndianRupee,
   CheckCircle2,
   Trash2,
-  Package,
-  Calendar,
-  Filter
+  Filter,
+  Download,
+  Leaf,
 } from 'lucide-react';
 import {
   BarChart,
@@ -44,50 +43,80 @@ export const History: React.FC = () => {
   }, [filterAction]);
 
   const stats = data?.stats ?? {
-  total_added: 0,
-  total_consumed: 0,
-  total_wasted: 0,
-  waste_rate_percent: 0,
-  efficiency_rate_percent: 0,
-  money_saved: 0,
-  money_wasted: 0
-};
+    total_added: 0,
+    total_consumed: 0,
+    total_wasted: 0,
+    waste_rate_percent: 0,
+    efficiency_rate_percent: 0,
+    money_saved: 0,
+    money_wasted: 0
+  };
 
-const monthlyComparison = Array.isArray(data?.monthly_comparison)
-  ? data.monthly_comparison
-  : [];
+  const monthlyComparison = Array.isArray(data?.monthly_comparison)
+    ? data.monthly_comparison
+    : [];
 
-const baselineWaste = Number(monthlyComparison[0]?.wasted ?? 0);
-const latestWaste = Number(
-  monthlyComparison[monthlyComparison.length - 1]?.wasted ?? 0
-);
+  const baselineWaste = Number(monthlyComparison[0]?.wasted ?? 0);
+  const latestWaste = Number(
+    monthlyComparison[monthlyComparison.length - 1]?.wasted ?? 0
+  );
 
-const wasteChangePercent =
-  monthlyComparison.length > 1 && baselineWaste > 0
-    ? Math.round(((baselineWaste - latestWaste) / baselineWaste) * 100)
-    : null;
+  const wasteChangePercent =
+    monthlyComparison.length > 1 && baselineWaste > 0
+      ? Math.round(((baselineWaste - latestWaste) / baselineWaste) * 100)
+      : null;
 
-const wasteTrendText =
-  wasteChangePercent === null
-    ? 'Not enough history'
-    : wasteChangePercent > 0
-      ? `${wasteChangePercent}% less waste`
-      : wasteChangePercent < 0
-        ? `${Math.abs(wasteChangePercent)}% more waste`
-        : 'Waste unchanged';
+  const wasteTrendText =
+    wasteChangePercent === null
+      ? 'Not enough history'
+      : wasteChangePercent > 0
+        ? `${wasteChangePercent}% less waste`
+        : wasteChangePercent < 0
+          ? `${Math.abs(wasteChangePercent)}% more waste`
+          : 'Waste unchanged';
 
-const wasteTrendClass =
-  wasteChangePercent === null
-    ? 'bg-slate-100 text-slate-600'
-    : wasteChangePercent > 0
-      ? 'bg-emerald-50 text-emerald-600'
-      : wasteChangePercent < 0
-        ? 'bg-rose-50 text-rose-600'
-        : 'bg-slate-100 text-slate-600';
+  const wasteTrendClass =
+    wasteChangePercent === null
+      ? 'bg-slate-100 text-slate-600'
+      : wasteChangePercent > 0
+        ? 'bg-emerald-50 text-emerald-600'
+        : wasteChangePercent < 0
+          ? 'bg-rose-50 text-rose-600'
+          : 'bg-slate-100 text-slate-600';
 
-const totalResolvedActivities =
-  Number(stats.total_consumed ?? 0) +
-  Number(stats.total_wasted ?? 0);
+  const totalResolvedActivities =
+    Number(stats.total_consumed ?? 0) +
+    Number(stats.total_wasted ?? 0);
+
+  // Transparent UN SDG 12.3 sustainability estimates (~0.3 kg/item, ~2.5 kg CO2e/kg food)
+  const estFoodSavedKg = (Number(stats.total_consumed ?? 0) * 0.3).toFixed(1);
+  const estCo2PreventedKg = (Number(stats.total_consumed ?? 0) * 0.3 * 2.5).toFixed(1);
+
+  const handleExportCsv = () => {
+    const rows = data?.timeline ?? [];
+    if (!rows.length) return;
+
+    const header = ['Date', 'Action', 'Food Item', 'Quantity', 'Unit', 'Est. Cost (INR)'];
+    const csvLines = [
+      header.join(','),
+      ...rows.map((act: any) => [
+        `"${new Date(act.timestamp).toLocaleDateString()}"`,
+        `"${act.action}"`,
+        `"${String(act.food_item_name || '').replace(/"/g, '""')}"`,
+        act.quantity ?? 1,
+        `"${act.unit || ''}"`,
+        act.estimated_cost ? Math.round(act.estimated_cost) : 0,
+      ].join(',')),
+    ];
+
+    const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `smart-fridge-history-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const getActionBadge = (action: string) => {
     switch (action) {
@@ -106,15 +135,27 @@ const totalResolvedActivities =
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <HistoryIcon className="w-6 h-6 text-emerald-600" />
-          Consumption & Waste History
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Analytics on food consumption efficiency, financial savings, and waste reduction trends
-        </p>
+      {/* Header + Export CSV */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <HistoryIcon className="w-6 h-6 text-emerald-600" />
+            Consumption &amp; Waste History
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Analytics on food consumption efficiency, financial savings, and waste reduction trends
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          disabled={!data?.timeline?.length}
+          className="inline-flex items-center gap-2 self-start sm:self-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 disabled:opacity-50 transition-colors"
+        >
+          <Download className="w-4 h-4 text-emerald-600" />
+          Export CSV Report
+        </button>
       </div>
 
       {/* High-Level Metric Cards */}
@@ -128,7 +169,7 @@ const totalResolvedActivities =
           <div className="text-2xl sm:text-3xl font-black text-emerald-600">
             {stats.efficiency_rate_percent}%
           </div>
-         <p className="text-[11px] text-slate-400 mt-1">Based on recorded consumption and waste</p>
+          <p className="text-[11px] text-slate-400 mt-1">Based on recorded consumption and waste</p>
         </div>
 
         {/* Money Saved */}
@@ -152,7 +193,7 @@ const totalResolvedActivities =
           <div className="text-2xl sm:text-3xl font-black text-slate-900">
             {stats.total_consumed}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Safely cooked & eaten</p>
+          <p className="text-[11px] text-slate-400 mt-1">Safely cooked &amp; eaten</p>
         </div>
 
         {/* Food Wasted */}
@@ -168,18 +209,51 @@ const totalResolvedActivities =
         </div>
       </div>
 
+      {/* Sustainability & UN SDG 12.3 Impact Strip */}
+      <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <Leaf className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-emerald-950">Sustainability Impact</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                UN SDG 12.3
+              </span>
+            </div>
+            <p className="text-xs text-emerald-800 mt-0.5">
+              Estimated from {stats.total_consumed} consumed items (~0.3 kg/item &amp; ~2.5 kg CO₂e/kg food saved).
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6 shrink-0">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Food Saved</p>
+            <p className="text-xl font-black text-emerald-950">{estFoodSavedKg} kg</p>
+          </div>
+          <div className="h-8 w-px bg-emerald-200" />
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">CO₂e Prevented</p>
+            <p className="text-xl font-black text-emerald-950">{estCo2PreventedKg} kg</p>
+          </div>
+        </div>
+      </div>
+
       {/* Monthly Consumed vs Wasted Bar Chart */}
       {monthlyComparison.length > 0 && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-soft">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Monthly Consumption vs Waste</h3>
-              <p className="text-xs text-slate-500"> Recorded consumption and waste over the last 5 calendar months</p>
+              <p className="text-xs text-slate-500">Recorded consumption and waste over the last 5 calendar months</p>
             </div>
-           <span
-  className={`text-xs font-semibold px-2.5 py-1 rounded-full ${wasteTrendClass}`}
->
-  {wasteTrendText}</span>
+            <span
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full ${wasteTrendClass}`}
+            >
+              {wasteTrendText}
+            </span>
           </div>
 
           <div className="h-64 w-full">
@@ -204,17 +278,19 @@ const totalResolvedActivities =
             </ResponsiveContainer>
           </div>
         </div>
-      )} {totalResolvedActivities === 0 && (
-  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-    <p className="font-semibold">
-      No consumption or waste activity recorded yet
-    </p>
-    <p className="mt-1 text-xs">
-      Mark food items as consumed or discarded to build your analytics
-      from actual activity records.
-    </p>
-  </div>
-)}
+      )}
+
+      {totalResolvedActivities === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <p className="font-semibold">
+            No consumption or waste activity recorded yet
+          </p>
+          <p className="mt-1 text-xs">
+            Mark food items as consumed or discarded to build your analytics
+            from actual activity records.
+          </p>
+        </div>
+      )}
 
       {/* Activity Timeline Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft p-6">
