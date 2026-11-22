@@ -218,7 +218,7 @@ export const Dashboard: React.FC = () => {
               <h2 className="kitchen-heading text-2xl">Use soon</h2>
               <p className="mt-1 text-sm text-[#5b685f]">A quick look at food that needs your attention.</p>
             </div>
-            <Link to="/foods?status=Expiring" className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-semibold text-[#315c43] hover:underline sm:self-auto">
+            <Link to="/foods" className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-semibold text-[#315c43] hover:underline sm:self-auto">
               View inventory <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
@@ -273,8 +273,8 @@ export const Dashboard: React.FC = () => {
                     : 'No items are currently marked as expiring soon or past date.'}
                 </p>
                 {needsAttention > 0 && (
-                  <Link to="/foods?status=Expiring" className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d8c2b4] bg-white px-3.5 py-2 text-sm font-semibold text-[#7b382a] hover:bg-[#fff7f2]">
-                    Review items <ArrowRight className="h-4 w-4" />
+                  <Link to={stats.expired_items > 0 ? '/foods?status=Expired' : '/foods?status=Expiring'} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#d8c2b4] bg-white px-3.5 py-2 text-sm font-semibold text-[#7b382a] hover:bg-[#fff7f2]">
+                   Review items <ArrowRight className="h-4 w-4" />
                   </Link>
                 )}
               </div>
