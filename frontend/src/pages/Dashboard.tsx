@@ -152,7 +152,7 @@ export const Dashboard: React.FC = () => {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Link
-            to="/webcam"
+            to="/webcam?autostart=1"
             className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-xl bg-[#315c43] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#254a35] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#315c43]"
           >
             <Camera className="h-5 w-5" />
@@ -332,7 +332,7 @@ export const Dashboard: React.FC = () => {
         <section className="kitchen-panel flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div><h2 className="kitchen-heading text-3xl">Let’s add your first food item</h2><p className="mt-2 max-w-xl text-sm leading-6 text-[#5b685f]">Scan a grocery with your camera or add it manually. You can review the details before saving.</p></div>
           <div className="flex flex-wrap gap-3">
-            <Link to="/webcam" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#315c43] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#254a35]"><Camera className="h-4 w-4" /> Scan food</Link>
+            <Link to="/webcam?autostart=1" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#315c43] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#254a35]"><Camera className="h-4 w-4" /> Scan food</Link>
             <Link to="/add-food" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#b9c5b8] px-4 py-2.5 text-sm font-semibold text-[#294a36] hover:bg-[#edf2e8]"><Plus className="h-4 w-4" /> Add manually</Link>
           </div>
         </section>

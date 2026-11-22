@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -104,6 +104,15 @@ export const FoodManagement: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedZone, setSelectedZone] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [activeBucket, setActiveBucket] = useState<'all' | 'review' | 'today' | 'soon'>('all');
+  const listRef = useRef<HTMLDivElement>(null);
+
+const selectBucket = (bucket: 'all' | 'review' | 'today' | 'soon') => {
+  setActiveBucket((prev) => (bucket !== 'all' && prev === bucket ? 'all' : bucket));
+  window.setTimeout(() => {
+    listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+};
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [editItem, setEditItem] = useState<FoodItem | null>(null);
   const [saving, setSaving] = useState(false);
@@ -287,7 +296,7 @@ export const FoodManagement: React.FC = () => {
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
-            to="/webcam"
+            to="/webcam?autostart=1"
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#315c43] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#254a35]"
           >
             <Package className="h-4 w-4" /> Scan food
@@ -327,27 +336,54 @@ export const FoodManagement: React.FC = () => {
       )}
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Inventory summary">
-        <div className="kitchen-panel p-4 sm:p-5">
-          <p className="flex items-center justify-between gap-2 text-sm font-medium text-[#647066]">All items <Package className="h-4 w-4" /></p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-[#20352a]">{foods.length}</p>
-          <p className="mt-1 text-xs text-[#69756b]">Matching your filters</p>
-        </div>
-        <div className="kitchen-panel p-4 sm:p-5">
-          <p className="flex items-center justify-between gap-2 text-sm font-medium text-[#647066]">Review <AlertTriangle className="h-4 w-4 text-[#b83d27]" /></p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-[#b83d27]">{needsReviewCount}</p>
-          <p className="mt-1 text-xs text-[#69756b]">Past date / marked spoiled</p>
-        </div>
-        <div className="kitchen-panel p-4 sm:p-5">
-          <p className="flex items-center justify-between gap-2 text-sm font-medium text-[#647066]">Use today <Clock3 className="h-4 w-4 text-[#99651b]" /></p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-[#99651b]">{useTodayCount}</p>
-          <p className="mt-1 text-xs text-[#69756b]">Listed date is today</p>
-        </div>
-        <div className="kitchen-panel p-4 sm:p-5">
-          <p className="flex items-center justify-between gap-2 text-sm font-medium text-[#647066]">Use this week <CalendarDays className="h-4 w-4 text-[#805414]" /></p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-[#805414]">{useSoonCount}</p>
-          <p className="mt-1 text-xs text-[#69756b]">Ripe / upcoming</p>
-        </div>
-      </section>
+     <button
+       type="button"
+       onClick={() => selectBucket('all')}
+       className={`kitchen-panel p-4 sm:p-5 text-left transition-all cursor-pointer hover:shadow-md ${
+         activeBucket === 'all' ? 'ring-2 ring-[#315c43]' : ''
+       }`}
+     >
+       <p className="flex items-center justify-between gap-2 text-sm font-medium text-[#647066]">All items <Package className="h-4 w-4" /></p>
+       <p className="mt-2 text-3xl font-semibold tracking-tight text-[#20352a]">{foods.length}</p>
+       <p className="mt-1 text-xs text-[#69756b]">Matching your filters</p>
+     </button>
+
+     <button
+       type="button"
+       onClick={() => selectBucket('review')}
+       className={`kitchen-panel p-4 sm:p-5 text-left transition-all cursor-pointer hover:shadow-md ${
+         activeBucket === 'review' ? 'ring-2 ring-[#b83d27]' : ''
+       }`}
+     >
+       <p className="flex items-center justify-between gap-2 text-sm font-medium text-[#647066]">Review <AlertTriangle className="h-4 w-4 text-[#b83d27]" /></p>
+       <p className="mt-2 text-3xl font-semibold tracking-tight text-[#b83d27]">{needsReviewCount}</p>
+       <p className="mt-1 text-xs text-[#69756b]">Past date / marked spoiled</p>
+     </button>
+
+     <button
+       type="button"
+       onClick={() => selectBucket('today')}
+       className={`kitchen-panel p-4 sm:p-5 text-left transition-all cursor-pointer hover:shadow-md ${
+         activeBucket === 'today' ? 'ring-2 ring-[#99651b]' : ''
+       }`}
+     >
+       <p className="flex items-center justify-between gap-2 text-sm font-medium text-[#647066]">Use today <Clock3 className="h-4 w-4 text-[#99651b]" /></p>
+       <p className="mt-2 text-3xl font-semibold tracking-tight text-[#99651b]">{useTodayCount}</p>
+       <p className="mt-1 text-xs text-[#69756b]">Listed date is today</p>
+     </button>
+
+     <button
+       type="button"
+       onClick={() => selectBucket('soon')}
+       className={`kitchen-panel p-4 sm:p-5 text-left transition-all cursor-pointer hover:shadow-md ${
+         activeBucket === 'soon' ? 'ring-2 ring-[#805414]' : ''
+       }`}
+     >
+       <p className="flex items-center justify-between gap-2 text-sm font-medium text-[#647066]">Use this week <CalendarDays className="h-4 w-4 text-[#805414]" /></p>
+       <p className="mt-2 text-3xl font-semibold tracking-tight text-[#805414]">{useSoonCount}</p>
+       <p className="mt-1 text-xs text-[#69756b]">Ripe / upcoming</p>
+     </button>
+   </section>
 
       <section className="kitchen-panel p-4 sm:p-5" aria-label="Search and filter inventory">
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#394b3e]">
@@ -441,8 +477,8 @@ export const FoodManagement: React.FC = () => {
           </div>
         </section>
       ) : (
-        <div className="space-y-5">
-          {groups.filter((group) => group.items.length > 0).map((group) => {
+        <div ref={listRef} className="space-y-5 scroll-mt-24">
+          {groups.filter((group) => group.items.length > 0 && (activeBucket === 'all' || group.key === activeBucket)).map((group) => {
             const GroupIcon = group.icon;
             return (
               <section key={group.key} className="kitchen-panel overflow-hidden">

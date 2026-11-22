@@ -33,7 +33,10 @@ class YoloDetectionService:
         db: Session,
         yolo_label: str,
     ):
-        """Use the standard produce classifier to refine a YOLO crop."""
+        """Verify and refine a YOLO crop using the standard food classifier.
+        Returns (None, None, 'rejected') when the crop is not a supported food
+        (e.g. a human face, hand, or room background).
+        """
         crop_path = None
 
         try:
@@ -58,7 +61,6 @@ class YoloDetectionService:
             ).strip().lower()
             confidence = float(top.get("confidence", 0.0) or 0.0)
 
-            # Ignore unknown or packaged dairy labels when refining produce YOLO boxes
             if (
                 predicted_label != "unknown"
                 and not predicted_label.startswith("packaged")
@@ -71,7 +73,7 @@ class YoloDetectionService:
                     "food_classifier",
                 )
 
-            return yolo_label, None, "custom_yolo"
+            return None, None, "rejected"
 
         except Exception:
             logger.exception(
@@ -131,6 +133,10 @@ class YoloDetectionService:
                 final_label, class_confidence, label_source = self._refine_food_label(
                     crop, db, yolo_label
                 )
+
+                # Skip non-food false positives (faces, hands, background)
+                if not final_label:
+                    continue
 
                 label = f"{final_label} {detection_confidence:.0%}"
                 if class_confidence is not None:

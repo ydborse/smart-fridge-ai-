@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Camera,
   Check,
@@ -36,7 +36,8 @@ interface ObjectDetectionResult {
 export default function WebcamRecognition() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-
+  const [searchParams] = useSearchParams();
+  const autoStartedRef = useRef(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
@@ -68,6 +69,12 @@ export default function WebcamRecognition() {
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+  useEffect(() => {
+  if (searchParams.get('autostart') === '1' && !autoStartedRef.current) {
+    autoStartedRef.current = true;
+    void startCamera();
+  }
+}, [searchParams]);
 
   useEffect(() => {
     return () => {
